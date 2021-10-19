@@ -1,24 +1,26 @@
 package api
 
 import (
-	"database/sql"
 	"context"
-	"time"
-	"syscall"
-	"os/signal"
-	"os"
+	"database/sql"
+	"encoding/json"
 	"fmt"
 	"net/http"
-	"github.com/go-chi/chi/v5"	
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 	"userland/api/handler/auth"
 	"userland/store"
 	"userland/store/postgres"
+
+	"github.com/go-chi/chi/v5"
 )
 
 type Server struct {
-	Config ServerConfig
+	Config     ServerConfig
 	DataSource *DataSource
-	stores *stores
+	stores     *stores
 }
 
 type DataSource struct {
@@ -30,17 +32,17 @@ type stores struct {
 }
 
 type ServerConfig struct {
-	Host string
-	Port string
-	ReadTimeout time.Duration
-	WriteTimeout time.Duration
+	Host            string
+	Port            string
+	ReadTimeout     time.Duration
+	WriteTimeout    time.Duration
 	ShutdownTimeout time.Duration
 }
 
 // init postgresql with lib (with standard, no handling connection directly?)
 func NewServer(config ServerConfig, dataSource *DataSource) *Server {
 	return &Server{
-		Config: config,
+		Config:     config,
 		DataSource: dataSource,
 	}
 }
@@ -48,22 +50,22 @@ func NewServer(config ServerConfig, dataSource *DataSource) *Server {
 func (s *Server) Start() {
 	osSigChan := make(chan os.Signal, 1)
 	signal.Notify(osSigChan, os.Interrupt, syscall.SIGTERM)
-	defer func(){
+	defer func() {
 		signal.Stop(osSigChan)
 		os.Exit(0)
 	}()
-	
+
 	_ = s.initStores()
 
 	r := s.createHandlers()
-	address := fmt.Sprintf("%s:%s", s.Config.Host, s.Config.Port)	
-	srv := &http.Server {
-		Addr: address,
-		ReadTimeout: s.Config.ReadTimeout,
+	address := fmt.Sprintf("%s:%s", s.Config.Host, s.Config.Port)
+	srv := &http.Server{
+		Addr:         address,
+		ReadTimeout:  s.Config.ReadTimeout,
 		WriteTimeout: s.Config.WriteTimeout,
-		Handler: r,
+		Handler:      r,
 	}
-	
+
 	shutdownCtx := context.Background()
 	if s.Config.ShutdownTimeout > 0 {
 		var cancelShutdownTimeout context.CancelFunc
@@ -90,7 +92,7 @@ func (s *Server) Start() {
 
 func (s *Server) initStores() error {
 	userStore := postgres.NewUserStore(s.DataSource.PostgresDB)
-	s.stores = &stores {
+	s.stores = &stores{
 		userStore: userStore,
 	}
 	return nil
@@ -100,5 +102,8 @@ func (s *Server) createHandlers() http.Handler {
 	// TODO pprof and healthcheck
 	r := chi.NewRouter()
 	r.Get("/", auth.Register(s.stores.userStore))
+	r.Get("/register", func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode("Hello world")
+	})
 	return r
 }
