@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -101,9 +100,8 @@ func (s *Server) initStores() error {
 func (s *Server) createHandlers() http.Handler {
 	// TODO pprof and healthcheck
 	r := chi.NewRouter()
-	r.Get("/", auth.Register(s.stores.userStore))
-	r.Get("/register", func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode("Hello world")
-	})
+	r.Post("/register", auth.Register(s.stores.userStore))
+	r.Post("/login", auth.Login(s.stores.userStore))
+
 	return r
 }
