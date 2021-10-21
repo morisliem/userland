@@ -24,11 +24,11 @@ func Register(userStore store.UserStore) http.HandlerFunc {
 		json.NewDecoder(r.Body).Decode(&request)
 
 		// Validate the request
-		err := request.ValidateRequest()
+		res, err := request.ValidateRequest()
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(response.Response(err.Error()))
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			json.NewEncoder(w).Encode(response.UnproccesableEntity(res))
 			return
 		}
 
@@ -47,23 +47,6 @@ func Register(userStore store.UserStore) http.HandlerFunc {
 			Password: hashPassword,
 		}
 
-		// // Check if the email is in the database
-		// err = userStore.EmailExist(ctx, newRegister)
-		// if err != nil {
-		// 	w.Header().Set("Content-Type", "application/json")
-		// 	w.WriteHeader(http.StatusBadRequest)
-		// 	json.NewEncoder(w).Encode(response.Response(err.Error()))
-		// 	return
-		// }
-
-		// err = helper.SendEmail(newRegister.Email, 123)
-		// if err != nil {
-		// 	w.Header().Set("Content-Type", "application/json")
-		// 	w.WriteHeader(http.StatusInternalServerError)
-		// 	json.NewEncoder(w).Encode(response.Response(err.Error()))
-		// 	return
-		// }
-
 		err = userStore.RegisterUser(ctx, newRegister)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
@@ -77,22 +60,30 @@ func Register(userStore store.UserStore) http.HandlerFunc {
 	}
 }
 
-func (rr *RequestRequest) ValidateRequest() error {
-	if msg, err := validator.ValidateFullname(rr.Fullname); !err {
-		return errors.New(msg)
+func (rr *RequestRequest) ValidateRequest() (map[string]string, error) {
+	res := map[string]string{}
+	nameErr := validator.ValidateFullname(rr.Fullname)
+	if nameErr != nil {
+		res["fullname"] = nameErr.Error()
 	}
 
-	if msg, err := validator.ValidateEmail(rr.Email); !err {
-		return errors.New(msg)
+	emailErr := validator.ValidateEmail(rr.Email)
+	if emailErr != nil {
+		res["email"] = emailErr.Error()
 	}
 
-	if msg, err := validator.ValidatePassword(rr.Password); !err {
-		return errors.New(msg)
+	pwdErr := validator.ValidatePassword(rr.Password)
+	if pwdErr != nil {
+		res["password"] = pwdErr.Error()
 	}
 
 	if rr.Password != rr.Confirm_password {
-		return errors.New("password not match")
+		res["unmatch_password"] = "check again your password"
 	}
 
-	return nil
+	if len(res) > 1 {
+		return res, errors.New("Error")
+	} else {
+		return res, nil
+	}
 }

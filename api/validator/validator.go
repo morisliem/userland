@@ -1,40 +1,40 @@
 package validator
 
 import (
-	"fmt"
+	"errors"
 	"net"
 	"regexp"
 	"strings"
 )
 
-func ValidateFullname(s string) (string, bool) {
+func ValidateFullname(s string) error {
 	if len(strings.TrimSpace(s)) == 0 {
-		return "Fullname is required", false
+		return errors.New("fullname is required")
 	}
 	if len(s) > 64 {
-		return "Fullname cannot exceed 256 characters", false
+		return errors.New("fullname cannot exceed 256 characters")
 	}
-	return "", true
+	return nil
 }
 
-func ValidateEmail(s string) (string, bool) {
+// Got bug sometime it works, some time it doesn't work
+func ValidateEmail(s string) error {
 	emailRegex, err := regexp.Compile("^[a-zA-Z0-9.!#$%&'*+\\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$")
 
 	if err != nil {
-		fmt.Println(err)
-		return "Sorry, something went wrong", false
+		return errors.New("sorry, something went wrong")
 	}
 
 	er := emailRegex.MatchString(s)
 	if !er {
-		return "Email address is not valid", false
+		return errors.New("email address is not valid")
 	}
 
 	if len(strings.TrimSpace(s)) == 0 {
-		return "Email is required", false
+		return errors.New("email is required")
 	}
 	if len(s) > 128 {
-		return "Email cannot exceed 256 characters", false
+		return errors.New("email cannot exceed 256 characters")
 	}
 
 	// Checking email domain
@@ -43,22 +43,22 @@ func ValidateEmail(s string) (string, bool) {
 
 	_, err = net.LookupMX(host)
 	if err != nil {
-		return "Counld not find email's domain server", false
+		return errors.New("could not find email's domain server")
 	}
 
-	return "", true
+	return nil
 }
 
-func ValidatePassword(s string) (string, bool) {
+func ValidatePassword(s string) error {
 	// status := true
 	if len(strings.TrimSpace(s)) == 0 {
-		return "Password is required", false
+		return errors.New("password is required")
 	}
 	if len(s) > 128 {
-		return "Password cannot exceed 128 characters", false
+		return errors.New("password cannot exceed 128 characters")
 	}
 	if len(s) < 8 {
-		return "Password must be more than 8 characters", false
+		return errors.New("password must be more than 8 characters")
 	}
 
 	hasUpperCase := false
@@ -78,17 +78,17 @@ func ValidatePassword(s string) (string, bool) {
 	}
 
 	if hasUpperCase && hasLowerCase && hasNumber {
-		return "", true
+		return nil
 	} else {
 		if !hasLowerCase {
-			return "Password must have a lowercase character", false
+			return errors.New("password must have a lowercase character")
 		}
 		if !hasUpperCase {
-			return "Password must have a uppercase character", false
+			return errors.New("password must have a uppercase character")
 		}
 		if !hasNumber {
-			return "Password must have a numerical character", false
+			return errors.New("password must have a numerical character")
 		}
-		return "", true
+		return nil
 	}
 }

@@ -5,10 +5,14 @@ import (
 	"time"
 	"userland/api"
 	"userland/store"
+
+	"github.com/joho/godotenv"
 )
 
 func main() {
 	// TODO use external config management (toml?)
+	_ = godotenv.Load(".env")
+
 	serverCfg := api.ServerConfig{
 		Host:            "0.0.0.0",
 		Port:            "80",
@@ -29,8 +33,22 @@ func main() {
 		log.Fatalf("failed to open db conn: %v\n", err)
 	}
 
+	redisCfg := store.RedisConfig{
+		Host:     "redis",
+		Port:     6379,
+		Password: "",
+		DB:       0,
+	}
+
+	redisDb, err := store.NewRedis(redisCfg)
+	if err != nil {
+		// log.Error().Err().Msg()
+		log.Fatalf("failed to open redis conn: %v\n", err)
+	}
+
 	serverDataSource := &api.DataSource{
 		PostgresDB: postgresDB,
+		RedisDB:    redisDb,
 	}
 
 	srv := api.NewServer(serverCfg, serverDataSource)

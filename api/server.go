@@ -12,8 +12,10 @@ import (
 	"userland/api/handler/auth"
 	"userland/store"
 	"userland/store/postgres"
+	"userland/store/rediss"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-redis/redis"
 )
 
 type Server struct {
@@ -24,10 +26,12 @@ type Server struct {
 
 type DataSource struct {
 	PostgresDB *sql.DB
+	RedisDB    *redis.Client
 }
 
 type stores struct {
-	userStore store.UserStore
+	userStore  store.UserStore
+	tokenStore store.TokenStore
 }
 
 type ServerConfig struct {
@@ -91,8 +95,11 @@ func (s *Server) Start() {
 
 func (s *Server) initStores() error {
 	userStore := postgres.NewUserStore(s.DataSource.PostgresDB)
+	tokenStore := rediss.NewTokenStore(s.DataSource.RedisDB)
+
 	s.stores = &stores{
-		userStore: userStore,
+		userStore:  userStore,
+		tokenStore: tokenStore,
 	}
 	return nil
 }
@@ -100,8 +107,10 @@ func (s *Server) initStores() error {
 func (s *Server) createHandlers() http.Handler {
 	// TODO pprof and healthcheck
 	r := chi.NewRouter()
-	r.Post("/register", auth.Register(s.stores.userStore))
-	r.Post("/login", auth.Login(s.stores.userStore))
+	r.Post("/auth/register", auth.Register(s.stores.userStore))
+	r.Post("/auth/register/validate", auth.ValidateEmail(s.stores.userStore))
+	r.Post("/auth/login", auth.Login(s.stores.userStore))
+	r.Post("/auth/password/reset", auth.ResetPassword(s.stores.userStore))
 
 	return r
 }

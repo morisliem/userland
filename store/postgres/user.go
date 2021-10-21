@@ -4,23 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"math/rand"
 	"time"
+	"userland/api/helper"
 	"userland/store"
 
 	"github.com/gofrs/uuid"
+	"github.com/rs/zerolog/log"
 )
-
-type User struct {
-	Id         uint64    `json:"Id"`
-	Fullname   string    `json:"fullname"`
-	Email      string    `json:"email"`
-	Password   string    `json:"password"`
-	Location   string    `json:"location"`
-	Bio        string    `json:"bio"`
-	Web        string    `json:"web"`
-	Picture    string    `json:"picture"`
-	Created_at time.Time `json:"created_at"`
-}
 
 type UserStore struct {
 	db *sql.DB
@@ -32,9 +23,82 @@ func NewUserStore(db *sql.DB) store.UserStore {
 	}
 }
 
-func (us *UserStore) GetUser(ctx context.Context) error {
+func (us *UserStore) ResetPassword(ctx context.Context, uid string, u store.User) error {
+	var tx *sql.Tx
+	tx, err := us.db.Begin()
+	if err != nil {
+		log.Error().Err(err).Msg("failed to begin transaction")
+		return errors.New("failed to update password")
+	}
+	defer tx.Rollback()
+
+	var updatePassword *sql.Stmt
+	updatePassword, err = tx.Prepare("UPDATE person SET Password = $1 WHERE id = $2")
+	if err != nil {
+		log.Error().Err(err).Msg("error preparing statement")
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			log.Error().Err(err).Msg("error occur rolling back changer")
+		}
+		return errors.New("failed to update password")
+	}
+	defer updatePassword.Close()
+
+	var result sql.Result
+	result, err = updatePassword.Exec(u.Password, uid)
+
+	rowsAff, _ := result.RowsAffected()
+
+	if err != nil || rowsAff != 1 {
+		log.Error().Err(err).Msg("error updating user password")
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			log.Error().Err(err).Msg("error occur rolling back changer")
+		}
+		return errors.New("failed to update password")
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		log.Error().Err(err).Msg("error committing changes")
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			log.Error().Err(err).Msg("error occur rolling back changer")
+		}
+		return errors.New("error committing changes")
+	}
 
 	return nil
+}
+
+func (us *UserStore) GetUserId(ctx context.Context, u store.User) (string, error) {
+	psqlStatement := `SELECT id, password FROM PERSON WHERE EMAIL = $1`
+
+	res := us.db.QueryRow(psqlStatement, u.Email)
+	var id string
+	var password string
+
+	err := res.Scan(&id, &password)
+
+	if err != nil {
+		return "", errors.New("unable to find the user")
+	}
+	if !helper.ComparePasswordHash(u.Password, password) {
+		return "", errors.New("password incorrect")
+	}
+	return id, nil
+}
+
+func (us *UserStore) GetUserCode(ctx context.Context, u store.User) (int, error) {
+	psqlStatement := `SELECT ver_code FROM email_ver WHERE EMAIL = $1`
+
+	res := us.db.QueryRow(psqlStatement, u.Email)
+	var code int
+
+	err := res.Scan(&code)
+
+	if err != nil {
+		return 0, errors.New("unable to find the user")
+	}
+	return code, nil
+
 }
 
 func (us *UserStore) EmailExist(ctx context.Context, u store.User) error {
@@ -54,106 +118,143 @@ func (us *UserStore) EmailExist(ctx context.Context, u store.User) error {
 }
 
 func (us *UserStore) RegisterUser(ctx context.Context, u store.User) error {
-	// var tx *sql.Tx
-	// tx, err := us.db.Begin()
-	// if err != nil {
-	// 	fmt.Println("failed to begin transaction")
-	// 	return err
-	// }
-	// defer tx.Rollback()
+	var tx *sql.Tx
+	tx, err := us.db.Begin()
 
-	// if us.EmailExist(ctx, u) != nil {
-	// 	fmt.Println("user exists")
-	// 	if rollbackErr := tx.Rollback(); rollbackErr != nil {
-	// 		fmt.Println("Error occur rolling back changer")
-	// 	}
-	// 	return err
-	// }
+	if err != nil {
+		log.Error().Err(err).Msg("failed to begin transaction")
+		return errors.New("failed to register user")
+	}
+	defer tx.Rollback()
 
-	// var inserUserStmt *sql.Stmt
-	// inserUserStmt, err = tx.Prepare("INSERT INTO person (fullname, email, password, created_at, id) values ($1, $2, $3, $4, $5);")
-	// if err != nil {
-	// 	fmt.Println("error preparing statement")
-	// 	if rollbackErr := tx.Rollback(); rollbackErr != nil {
-	// 		fmt.Println("Error occur rolling back changer")
-	// 	}
-	// 	return err
-	// }
-	// defer inserUserStmt.Close()
+	if us.EmailExist(ctx, u) != nil {
+		return errors.New("email is used")
+	}
 
-	// userId, err := uuid.NewV4()
-	// if err != nil {
-	// 	return errors.New("failed to generate user id")
-	// }
-
-	// var result sql.Result
-	// result, err = inserUserStmt.Exec(u.Fullname, u.Email, u.Password, time.Now().UTC(), userId.String())
-
-	// rowsAff, _ := result.RowsAffected()
-
-	// if err != nil || rowsAff != 1 {
-	// 	fmt.Println("error inserting new user")
-	// 	if rollbackErr := tx.Rollback(); rollbackErr != nil {
-	// 		fmt.Println("Error occur rolling back changer")
-	// 	}
-	// 	return err
-	// }
-
-	// rand.Seed(time.Now().UnixNano())
-	// rn := rand.Intn(100000)
-	// fmt.Println("random number:", rn)
-	// var insertEmailVerStmt *sql.Stmt
-	// insertEmailVerStmt, err = tx.Prepare("INSERT INTO email_ver (fullname, email, ver_code) VALUES ($1, $2, $3);")
-	// if err != nil {
-	// 	fmt.Println("failed to prepare statement")
-	// 	if rollbackErr := tx.Rollback(); rollbackErr != nil {
-	// 		fmt.Println("Error occur rolling back changer")
-	// 	}
-	// 	return err
-	// }
-	// defer insertEmailVerStmt.Close()
-	// result, err = insertEmailVerStmt.Exec(u.Fullname, u.Email, rn)
-	// rowsAff, _ = result.RowsAffected()
-
-	// if err != nil || rowsAff != 1 {
-	// 	fmt.Println("error inserting into email_ver")
-	// 	if rollbackErr := tx.Rollback(); rollbackErr != nil {
-	// 		fmt.Println("Error occur rolling back changer")
-	// 	}
-	// 	return err
-	// }
-
-	// err = helper.SendEmail(u.Email, rn)
-	// if err != nil {
-	// 	fmt.Println("error emailing verification code")
-	// 	if rollbackErr := tx.Rollback(); rollbackErr != nil {
-	// 		fmt.Println("Error occur rolling back changer")
-	// 	}
-	// 	return err
-	// }
-
-	// err = tx.Commit()
-	// if err != nil {
-	// 	fmt.Println("error committing changes")
-	// 	if rollbackErr := tx.Rollback(); rollbackErr != nil {
-	// 		fmt.Println("Error occur rolling back changer")
-	// 	}
-	// 	return err
-	// }
-
-	// fmt.Println("success")
-
-	psqlStatement := `INSERT INTO PERSON (Fullname,Email,Password,Created_at,Id) values ($1,$2,$3,$4,$5)`
+	// Prepare statement for inserting new user
+	var inserUserStmt *sql.Stmt
+	inserUserStmt, err = tx.Prepare(`INSERT INTO person 
+									(fullname, email, password, created_at, id, is_active) 
+									values ($1, $2, $3, $4, $5, $6);`)
+	if err != nil {
+		log.Error().Err(err).Msg("error preparing statement")
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			log.Error().Err(err).Msg("error occur rolling back changer")
+		}
+		return errors.New("failed to register user")
+	}
+	defer inserUserStmt.Close()
 
 	userId, err := uuid.NewV4()
 	if err != nil {
-		return errors.New("failed to generate user id")
+		log.Error().Err(err).Msg("failed to generate user id")
+		return errors.New("failed to register user")
 	}
 
-	_, err = us.db.Exec(psqlStatement, u.Fullname, u.Email, u.Password, time.Now().UTC(), userId.String())
+	var result sql.Result
+	result, err = inserUserStmt.Exec(u.Fullname, u.Email, u.Password, time.Now().UTC(), userId.String(), 0)
 
+	rowsAff, _ := result.RowsAffected()
+
+	if err != nil || rowsAff != 1 {
+		log.Error().Err(err).Msg("error inserting new user")
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			log.Error().Err(err).Msg("error occur rolling back changer")
+		}
+		return errors.New("failed to register user")
+	}
+
+	rand.Seed(time.Now().UnixNano())
+	rn := rand.Intn(100000)
+
+	// Prepare statement for inserting new verfication code
+	var insertEmailVerStmt *sql.Stmt
+	insertEmailVerStmt, err = tx.Prepare(`INSERT INTO email_ver 
+										(fullname, email, ver_code) 
+										VALUES ($1, $2, $3);`)
 	if err != nil {
-		return errors.New("failed to store user")
+		log.Error().Err(err).Msg("error preparing statement")
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			log.Error().Err(err).Msg("error occur rolling back changer")
+		}
+		return errors.New("failed to register user")
 	}
+	defer insertEmailVerStmt.Close()
+	result, err = insertEmailVerStmt.Exec(u.Fullname, u.Email, rn)
+	rowsAff, _ = result.RowsAffected()
+
+	if err != nil || rowsAff != 1 {
+		log.Error().Err(err).Msg("error inserting email varification")
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			log.Error().Err(err).Msg("error occur rolling back changer")
+		}
+		return errors.New("failed to register user")
+	}
+
+	go helper.SendEmail(u.Email, rn)
+
+	err = tx.Commit()
+	if err != nil {
+		log.Error().Err(err).Msg("error committing changes")
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			log.Error().Err(err).Msg("error occur rolling back changer")
+		}
+		return errors.New("failed to register user")
+	}
+
 	return nil
+}
+
+func (us *UserStore) ValidateCode(ctx context.Context, u store.User) error {
+	code, err := us.GetUserCode(ctx, u)
+	if err != nil {
+		return err
+	}
+
+	if code == u.VerCode {
+		var tx *sql.Tx
+		tx, err = us.db.Begin()
+		if err != nil {
+			log.Error().Err(err).Msg("failed to begin transaction")
+			return errors.New("failed to update password")
+		}
+		defer tx.Rollback()
+
+		var updateUser *sql.Stmt
+		updateUser, err := tx.Prepare(`UPDATE PERSON SET is_active = 1 WHERE email = $1`)
+		if err != nil {
+			log.Error().Err(err).Msg("error preparing statement")
+			if rollbackErr := tx.Rollback(); rollbackErr != nil {
+				log.Error().Err(err).Msg("error occur rolling back changer")
+			}
+			return errors.New("failed to update user state")
+		}
+		defer updateUser.Close()
+
+		var result sql.Result
+		result, err = updateUser.Exec(u.Email)
+
+		rowsAff, _ := result.RowsAffected()
+
+		if err != nil || rowsAff != 1 {
+			log.Error().Err(err).Msg("error updating user state")
+			if rollbackErr := tx.Rollback(); rollbackErr != nil {
+				log.Error().Err(err).Msg("error occur rolling back changer")
+			}
+			return errors.New("failed to update user state")
+		}
+
+		err = tx.Commit()
+		if err != nil {
+			log.Error().Err(err).Msg("error committing changes")
+			if rollbackErr := tx.Rollback(); rollbackErr != nil {
+				log.Error().Err(err).Msg("error occur rolling back changer")
+			}
+			return errors.New("error committing changes")
+		}
+		return nil
+
+	} else {
+		return errors.New("incorrect verification code")
+	}
 }
