@@ -37,6 +37,13 @@ services:
       default:
         aliases:
           - userland_service
+  redis:
+    image: redis:6.2.6-alpine
+    restart: on-failure
+    expose: 
+      - 6379
+    ports:
+      - "6379:6379/tcp"
 networks: 
   default:
 

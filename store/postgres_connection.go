@@ -1,15 +1,16 @@
 package store
 
 import (
-	"fmt"
 	"database/sql"
+	"fmt"
+
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/stdlib"
 )
 
 type PostgresConfig struct {
-	Host string
-	Port int
+	Host     string
+	Port     int
 	Username string
 	Password string
 	Database string
