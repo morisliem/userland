@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"math/rand"
 	"time"
 	"userland/api/helper"
 	"userland/store"
@@ -22,7 +23,7 @@ func NewUserStore(db *sql.DB) store.UserStore {
 	}
 }
 
-func (us *UserStore) UpdatePassword(ctx context.Context, uid string, u store.User) error {
+func (us *UserStore) ResetPassword(ctx context.Context, uid string, u store.User) error {
 	var tx *sql.Tx
 	tx, err := us.db.Begin()
 	if err != nil {
@@ -30,17 +31,14 @@ func (us *UserStore) UpdatePassword(ctx context.Context, uid string, u store.Use
 		return errors.New("failed to update password")
 	}
 	defer tx.Rollback()
-	defer func() {
-		if rollBackErr := tx.Rollback(); rollBackErr == nil {
-			log.Error().Err(err).Msg("rolling back changes")
-		}
-	}()
 
-	// Updating user password
 	var updatePassword *sql.Stmt
 	updatePassword, err = tx.Prepare("UPDATE person SET Password = $1 WHERE id = $2")
 	if err != nil {
 		log.Error().Err(err).Msg("error preparing statement")
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			log.Error().Err(err).Msg("error occur rolling back changer")
+		}
 		return errors.New("failed to update password")
 	}
 	defer updatePassword.Close()
@@ -52,30 +50,18 @@ func (us *UserStore) UpdatePassword(ctx context.Context, uid string, u store.Use
 
 	if err != nil || rowsAff != 1 {
 		log.Error().Err(err).Msg("error updating user password")
-		return errors.New("failed to update password")
-	}
-
-	// Adding new password to user_password table
-	var insertNewPassword *sql.Stmt
-	insertNewPassword, err = tx.Prepare(`INSERT INTO user_password (id, password) values ($1, $2)`)
-	if err != nil {
-		log.Error().Err(err).Msg("error preparing statement")
-		return errors.New("failed to update password")
-	}
-	defer insertNewPassword.Close()
-
-	result, err = insertNewPassword.Exec(uid, u.Password)
-
-	rowsAff, _ = result.RowsAffected()
-
-	if err != nil || rowsAff != 1 {
-		log.Error().Err(err).Msg("error updating user password")
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			log.Error().Err(err).Msg("error occur rolling back changer")
+		}
 		return errors.New("failed to update password")
 	}
 
 	err = tx.Commit()
 	if err != nil {
 		log.Error().Err(err).Msg("error committing changes")
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			log.Error().Err(err).Msg("error occur rolling back changer")
+		}
 		return errors.New("error committing changes")
 	}
 
@@ -92,28 +78,12 @@ func (us *UserStore) GetUserId(ctx context.Context, u store.User) (string, error
 	err := res.Scan(&id, &password)
 
 	if err != nil {
-		log.Error().Err(err).Msg(err.Error())
 		return "", errors.New("unable to find the user")
 	}
 	if !helper.ComparePasswordHash(u.Password, password) {
-		log.Error().Err(err).Msg("password incorrect")
 		return "", errors.New("password incorrect")
 	}
 	return id, nil
-}
-
-func (us *UserStore) GetUserid(ctx context.Context, email string) (string, error) {
-	psqlStatement := `SELECT id FROM PERSON WHERE EMAIL = $1`
-
-	res := us.db.QueryRow(psqlStatement, email)
-	var userId string
-
-	err := res.Scan(&userId)
-	if err != nil {
-		return "", errors.New("unable to find the user")
-	}
-	return userId, nil
-
 }
 
 func (us *UserStore) GetUserCode(ctx context.Context, u store.User) (int, error) {
@@ -125,48 +95,10 @@ func (us *UserStore) GetUserCode(ctx context.Context, u store.User) (int, error)
 	err := res.Scan(&code)
 
 	if err != nil {
-		log.Error().Err(err).Msg(err.Error())
 		return 0, errors.New("unable to find the user")
 	}
 	return code, nil
-}
 
-func (us *UserStore) GetUserState(ctx context.Context, u store.User) (int, error) {
-	psqlStatement := `SELECT is_active FROM Person WHERE Email = $1`
-
-	res := us.db.QueryRow(psqlStatement, u.Email)
-	var state int
-
-	err := res.Scan(&state)
-
-	if err != nil {
-		log.Error().Err(err).Msg(err.Error())
-		return -1, errors.New("unable to find the user")
-	}
-	return state, nil
-}
-
-func (us *UserStore) GetPasswords(ctx context.Context, uid string) ([]string, error) {
-	psqlStatement := `SELECT password FROM user_password WHERE id = $1`
-
-	res, err := us.db.Query(psqlStatement, uid)
-	if err != nil {
-		log.Error().Err(err).Msg(err.Error())
-		return nil, errors.New("unable to find user")
-	}
-	var pwd []string
-
-	for res.Next() {
-		var tmp string
-		err = res.Scan(&tmp)
-		if err != nil {
-			log.Error().Err(err).Msg("error getting the password")
-			return nil, errors.New("unable to find user")
-		}
-		pwd = append(pwd, tmp)
-	}
-
-	return pwd, nil
 }
 
 func (us *UserStore) EmailExist(ctx context.Context, u store.User) error {
@@ -175,15 +107,17 @@ func (us *UserStore) EmailExist(ctx context.Context, u store.User) error {
 	res := us.db.QueryRow(psqlStatement, u.Email)
 	var email string
 
-	err := res.Scan(&email)
-	if err != nil {
-		return errors.New("unable to find the user")
-	} else {
+	switch err := res.Scan(&email); err {
+	case sql.ErrNoRows:
 		return nil
+	case nil:
+		return errors.New("email is registed")
+	default:
+		return errors.New("server error")
 	}
 }
 
-func (us *UserStore) RegisterUser(ctx context.Context, u store.User, rn int) error {
+func (us *UserStore) RegisterUser(ctx context.Context, u store.User) error {
 	var tx *sql.Tx
 	tx, err := us.db.Begin()
 
@@ -192,13 +126,8 @@ func (us *UserStore) RegisterUser(ctx context.Context, u store.User, rn int) err
 		return errors.New("failed to register user")
 	}
 	defer tx.Rollback()
-	defer func() {
-		if rollBackErr := tx.Rollback(); rollBackErr == nil {
-			log.Error().Err(err).Msg("rolling back changes")
-		}
-	}()
 
-	if us.EmailExist(ctx, u) == nil {
+	if us.EmailExist(ctx, u) != nil {
 		return errors.New("email is used")
 	}
 
@@ -209,6 +138,9 @@ func (us *UserStore) RegisterUser(ctx context.Context, u store.User, rn int) err
 									values ($1, $2, $3, $4, $5, $6);`)
 	if err != nil {
 		log.Error().Err(err).Msg("error preparing statement")
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			log.Error().Err(err).Msg("error occur rolling back changer")
+		}
 		return errors.New("failed to register user")
 	}
 	defer inserUserStmt.Close()
@@ -226,294 +158,103 @@ func (us *UserStore) RegisterUser(ctx context.Context, u store.User, rn int) err
 
 	if err != nil || rowsAff != 1 {
 		log.Error().Err(err).Msg("error inserting new user")
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			log.Error().Err(err).Msg("error occur rolling back changer")
+		}
 		return errors.New("failed to register user")
 	}
 
-	// Prepare statement for inserting new password
-	var insertNewPassword *sql.Stmt
-	insertNewPassword, err = tx.Prepare(`INSERT INTO user_password 
-										(id, password) 
-										VALUES($1, $2)`)
+	rand.Seed(time.Now().UnixNano())
+	rn := rand.Intn(100000)
+
+	// Prepare statement for inserting new verfication code
+	var insertEmailVerStmt *sql.Stmt
+	insertEmailVerStmt, err = tx.Prepare(`INSERT INTO email_ver 
+										(fullname, email, ver_code) 
+										VALUES ($1, $2, $3);`)
 	if err != nil {
 		log.Error().Err(err).Msg("error preparing statement")
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			log.Error().Err(err).Msg("error occur rolling back changer")
+		}
 		return errors.New("failed to register user")
 	}
-	defer insertNewPassword.Close()
-	result, err = insertNewPassword.Exec(userId.String(), u.Password)
+	defer insertEmailVerStmt.Close()
+	result, err = insertEmailVerStmt.Exec(u.Fullname, u.Email, rn)
 	rowsAff, _ = result.RowsAffected()
 
 	if err != nil || rowsAff != 1 {
-		log.Error().Err(err).Msg("error inserting new user")
+		log.Error().Err(err).Msg("error inserting email varification")
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			log.Error().Err(err).Msg("error occur rolling back changer")
+		}
 		return errors.New("failed to register user")
 	}
+
+	go helper.SendEmail(u.Email, rn)
 
 	err = tx.Commit()
 	if err != nil {
 		log.Error().Err(err).Msg("error committing changes")
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			log.Error().Err(err).Msg("error occur rolling back changer")
+		}
 		return errors.New("failed to register user")
 	}
+
 	return nil
 }
 
 func (us *UserStore) ValidateCode(ctx context.Context, u store.User) error {
-	var tx *sql.Tx
-	tx, err := us.db.Begin()
-
+	code, err := us.GetUserCode(ctx, u)
 	if err != nil {
-		log.Error().Err(err).Msg("failed to begin transaction")
-		return errors.New("failed to update password")
-	}
-	defer tx.Rollback()
-	defer func() {
-		if rollBackErr := tx.Rollback(); rollBackErr == nil {
-			log.Error().Err(err).Msg("rolling back changes")
-		}
-	}()
-
-	var updateUser *sql.Stmt
-	updateUser, err = tx.Prepare(`UPDATE PERSON SET is_active = 1 WHERE email = $1`)
-	if err != nil {
-		log.Error().Err(err).Msg("error preparing statement")
-		return errors.New("failed to update user state")
-	}
-	defer updateUser.Close()
-
-	var result sql.Result
-	result, err = updateUser.Exec(u.Email)
-
-	rowsAff, _ := result.RowsAffected()
-
-	if err != nil || rowsAff != 1 {
-		log.Error().Err(err).Msg("error updating user state")
-		return errors.New("failed to update user state")
+		return err
 	}
 
-	err = tx.Commit()
-	if err != nil {
-		log.Error().Err(err).Msg("error committing changes")
-		return errors.New("error committing changes")
-	}
-	return nil
-}
-
-func (us *UserStore) GetUserDetail(ctx context.Context, uid string) (store.User, error) {
-	var response store.User
-	psqlstatement := `SELECT * FROM person WHERE id = $1`
-
-	res := us.db.QueryRow(psqlstatement, uid)
-	var id, fullname, email, password string
-	var location, bio, picture, web sql.NullString
-	var created_at time.Time
-	var is_active int
-
-	err := res.Scan(&id, &fullname, &email, &password, &location, &bio, &web, &picture, &created_at, &is_active)
-	if err != nil {
-		log.Error().Err(err).Msg(err.Error())
-		return response, errors.New("unable to find the user")
-	}
-
-	loc := ""
-	bioo := ""
-	webs := ""
-	pict := ""
-
-	response.Id = id
-	response.Fullname = fullname
-
-	if !location.Valid {
-		response.Location = loc
-	} else {
-		var tmp string
-		err := us.db.QueryRow(`SELECT location from PERSON where id = $1`, id).Scan(&tmp)
+	if code == u.VerCode {
+		var tx *sql.Tx
+		tx, err = us.db.Begin()
 		if err != nil {
-			log.Error().Err(err).Msg(err.Error())
-			return response, errors.New("unable to find the user")
+			log.Error().Err(err).Msg("failed to begin transaction")
+			return errors.New("failed to update password")
 		}
-		response.Location = tmp
-	}
+		defer tx.Rollback()
 
-	if !bio.Valid {
-		response.Bio = bioo
-	} else {
-		var tmp string
-		err := us.db.QueryRow(`SELECT bio from PERSON where id = $1`, id).Scan(&tmp)
+		var updateUser *sql.Stmt
+		updateUser, err := tx.Prepare(`UPDATE PERSON SET is_active = 1 WHERE email = $1`)
 		if err != nil {
-			log.Error().Err(err).Msg(err.Error())
-			return response, errors.New("unable to find the user")
+			log.Error().Err(err).Msg("error preparing statement")
+			if rollbackErr := tx.Rollback(); rollbackErr != nil {
+				log.Error().Err(err).Msg("error occur rolling back changer")
+			}
+			return errors.New("failed to update user state")
 		}
-		response.Bio = tmp
-	}
+		defer updateUser.Close()
 
-	if !web.Valid {
-		response.Web = webs
-	} else {
-		var tmp string
-		err := us.db.QueryRow(`SELECT web from PERSON where id = $1`, id).Scan(&tmp)
+		var result sql.Result
+		result, err = updateUser.Exec(u.Email)
+
+		rowsAff, _ := result.RowsAffected()
+
+		if err != nil || rowsAff != 1 {
+			log.Error().Err(err).Msg("error updating user state")
+			if rollbackErr := tx.Rollback(); rollbackErr != nil {
+				log.Error().Err(err).Msg("error occur rolling back changer")
+			}
+			return errors.New("failed to update user state")
+		}
+
+		err = tx.Commit()
 		if err != nil {
-			log.Error().Err(err).Msg(err.Error())
-			return response, errors.New("unable to find the user")
+			log.Error().Err(err).Msg("error committing changes")
+			if rollbackErr := tx.Rollback(); rollbackErr != nil {
+				log.Error().Err(err).Msg("error occur rolling back changer")
+			}
+			return errors.New("error committing changes")
 		}
-		response.Web = tmp
-	}
+		return nil
 
-	if !picture.Valid {
-		response.Picture = pict
 	} else {
-		var tmp string
-		err := us.db.QueryRow(`SELECT picture from PERSON where id = $1`, id).Scan(&tmp)
-		if err != nil {
-			log.Error().Err(err).Msg(err.Error())
-			return response, errors.New("unable to find the user")
-		}
-		response.Picture = tmp
+		return errors.New("incorrect verification code")
 	}
-
-	response.Created_at = created_at
-
-	return response, nil
-}
-
-func (us *UserStore) UpdateUserDetail(ctx context.Context, u store.User, uid string) error {
-	var tx *sql.Tx
-	tx, err := us.db.Begin()
-	if err != nil {
-		log.Error().Err(err).Msg("failed to begin transaction")
-		return errors.New("failed to update user detail")
-	}
-	defer tx.Rollback()
-	defer func() {
-		if rollBackErr := tx.Rollback(); rollBackErr == nil {
-			log.Error().Err(err).Msg("rolling back changes")
-		}
-	}()
-
-	var updateUserDetail *sql.Stmt
-	updateUserDetail, err = tx.Prepare(`UPDATE person 
-										SET Fullname = $2, Location = $3, Bio = $4, Web = $5 
-										WHERE id = $1`)
-
-	if err != nil {
-		log.Error().Err(err).Msg("error preparing statement")
-		return errors.New("failed to update user detail")
-	}
-	defer updateUserDetail.Close()
-
-	var result sql.Result
-	result, err = updateUserDetail.Exec(uid, u.Fullname, u.Location, u.Bio, u.Web)
-
-	rowsAff, _ := result.RowsAffected()
-
-	if err != nil || rowsAff != 1 {
-		log.Error().Err(err).Msg("error updating user user detail")
-		return errors.New("failed to update user detail")
-	}
-
-	err = tx.Commit()
-	if err != nil {
-		log.Error().Err(err).Msg("error committing changes")
-		return errors.New("error committing changes")
-	}
-
-	return nil
-}
-
-func (us *UserStore) GetUserEmail(ctx context.Context, uid string) (store.User, error) {
-	var email string
-	var response store.User
-	psqlstatement := `SELECT email FROM person WHERE id = $1`
-
-	err := us.db.QueryRow(psqlstatement, uid).Scan(&email)
-	if err != nil {
-		log.Error().Err(err).Msg(err.Error())
-		return response, errors.New("unable to find the user")
-	}
-
-	response.Email = email
-
-	return response, nil
-}
-
-func (us *UserStore) UpdateUserEmail(ctx context.Context, u store.User, uid string) error {
-	var tx *sql.Tx
-	tx, err := us.db.Begin()
-
-	if err != nil {
-		log.Error().Err(err).Msg("failed to begin transaction")
-		return errors.New("failed to update user email")
-	}
-
-	defer tx.Rollback()
-	defer func() {
-		if rollBackErr := tx.Rollback(); rollBackErr == nil {
-			log.Error().Err(err).Msg("rolling back changes")
-		}
-	}()
-
-	if us.EmailExist(ctx, u) != nil {
-		return errors.New("email is used")
-	}
-
-	var updateEmail *sql.Stmt
-	updateEmail, err = tx.Prepare(`UPDATE person SET email = $2, is_active = 0 WHERE id = $1`)
-	if err != nil {
-		log.Error().Err(err).Msg("error preparing statement")
-		return errors.New("failed to update user email")
-	}
-	defer updateEmail.Close()
-
-	result, err := updateEmail.Exec(uid, u.Email)
-	rowsAff, _ := result.RowsAffected()
-
-	if err != nil || rowsAff != 1 {
-		log.Error().Err(err).Msg("error inserting email varification")
-		return errors.New("failed to update user email")
-	}
-
-	err = tx.Commit()
-	if err != nil {
-		log.Error().Err(err).Msg("error committing changes")
-		return errors.New("failed to update user email")
-	}
-
-	return nil
-}
-
-func (us *UserStore) DeleteAccount(ctx context.Context, uid string) error {
-	var tx *sql.Tx
-	tx, err := us.db.Begin()
-
-	if err != nil {
-		log.Error().Err(err).Msg("failed to begin transaction")
-		return errors.New("failed to delete account")
-	}
-	defer tx.Rollback()
-	defer func() {
-		if rollBackErr := tx.Rollback(); rollBackErr == nil {
-			log.Error().Err(err).Msg("rolling back changes")
-		}
-	}()
-
-	var updateAccountState *sql.Stmt
-	updateAccountState, err = tx.Prepare(`UPDATE person SET is_active = $2 WHERE id = $1`)
-	if err != nil {
-		log.Error().Err(err).Msg("error preparing statement")
-		return errors.New("failed to delete account")
-	}
-	defer updateAccountState.Close()
-
-	result, err := updateAccountState.Exec(uid, 0)
-	rowsAff, _ := result.RowsAffected()
-
-	if err != nil || rowsAff != 1 {
-		log.Error().Err(err).Msg("error inserting email varification")
-		return errors.New("failed to delete account")
-	}
-
-	err = tx.Commit()
-	if err != nil {
-		log.Error().Err(err).Msg("error committing changes")
-		return errors.New("failed to delete account")
-	}
-
-	return nil
 }

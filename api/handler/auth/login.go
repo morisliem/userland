@@ -15,7 +15,9 @@ type LoginRequest struct {
 	Password string `json:"password"`
 }
 
-func Login(userStore store.UserStore, tokenStore store.TokenStore) http.HandlerFunc {
+// Still missing the refresh token
+// Have to check user's state before give user access to log in
+func Login(userStore store.UserStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request LoginRequest
 		ctx := r.Context()
@@ -34,23 +36,6 @@ func Login(userStore store.UserStore, tokenStore store.TokenStore) http.HandlerF
 			Password: request.Password,
 		}
 
-		state, err := userStore.GetUserState(ctx, newLogin)
-		if err != nil {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(response.Response(err.Error()))
-			return
-		}
-
-		if state != 1 {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusUnprocessableEntity)
-			tmp := map[string]string{}
-			tmp["email"] = "email still inactive"
-			json.NewEncoder(w).Encode(response.UnproccesableEntity(tmp))
-			return
-		}
-
 		userId, err := userStore.GetUserId(ctx, newLogin)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
@@ -59,7 +44,7 @@ func Login(userStore store.UserStore, tokenStore store.TokenStore) http.HandlerF
 			return
 		}
 
-		ts, err := jwt.GenerateToken(userId)
+		token, err := jwt.GenerateToken(userId)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadRequest)
@@ -67,29 +52,12 @@ func Login(userStore store.UserStore, tokenStore store.TokenStore) http.HandlerF
 			return
 		}
 
-		saveErr := jwt.CreateAuth(userId, ts, tokenStore)
-		if saveErr != nil {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(response.Response(saveErr.Error()))
-			return
-		}
+		res := map[string]string{}
 
-		cookie1 := &http.Cookie{
-			Name:  "access_token",
-			Value: ts.AccessToken,
-		}
-
-		cookie2 := &http.Cookie{
-			Name:  "refresh_token",
-			Value: ts.RefreshToken,
-		}
-		http.SetCookie(w, cookie1)
-		http.SetCookie(w, cookie2)
+		res["Access token"] = token
 
 		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(response.Success())
+		json.NewEncoder(w).Encode(res)
 	}
 }
 
@@ -105,7 +73,7 @@ func (lr *LoginRequest) ValidateRequest() (map[string]string, error) {
 		res["password"] = pwdErr.Error()
 	}
 
-	if len(res) > 0 {
+	if len(res) > 1 {
 		return res, errors.New("Error")
 	} else {
 		return res, nil

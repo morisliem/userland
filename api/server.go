@@ -10,7 +10,6 @@ import (
 	"syscall"
 	"time"
 	"userland/api/handler/auth"
-	mydetail "userland/api/handler/my_detail"
 	"userland/store"
 	"userland/store/postgres"
 	"userland/store/rediss"
@@ -108,20 +107,10 @@ func (s *Server) initStores() error {
 func (s *Server) createHandlers() http.Handler {
 	// TODO pprof and healthcheck
 	r := chi.NewRouter()
-	r.Post("/auth/register", auth.Register(s.stores.userStore, s.stores.tokenStore))
-	r.Post("/auth/register/validate", auth.ValidateEmail(s.stores.userStore, s.stores.tokenStore))
-	r.Post("/auth/login", auth.Login(s.stores.userStore, s.stores.tokenStore))
-	r.Post("/auth/password/forget", auth.ForgetPassword(s.stores.userStore, s.stores.tokenStore))
-	r.Post("/auth/password/reset", auth.ResetPassword(s.stores.userStore, s.stores.tokenStore))
-	r.Post("/auth/refresh_token", auth.RefreshToken(s.stores.userStore, s.stores.tokenStore))
-
-	r.Get("/me", mydetail.GetUserDetail(s.stores.userStore, s.stores.tokenStore))
-	r.Post("/me", mydetail.UpdateUserDetail(s.stores.userStore, s.stores.tokenStore))
-	r.Get("/me/email", mydetail.GetUserEmail(s.stores.userStore, s.stores.tokenStore))
-	r.Post("/me/email", mydetail.UpdateUserEmail(s.stores.userStore, s.stores.tokenStore))
-	r.Post("/me/password", mydetail.ChangeUserPassword(s.stores.userStore, s.stores.tokenStore))
-	r.Post("/me/picture", mydetail.SetUserPicture(s.stores.userStore, s.stores.tokenStore))
-	r.Post("/me/delete", mydetail.DeleteUserAccount(s.stores.userStore, s.stores.tokenStore))
+	r.Post("/auth/register", auth.Register(s.stores.userStore))
+	r.Post("/auth/register/validate", auth.ValidateEmail(s.stores.userStore))
+	r.Post("/auth/login", auth.Login(s.stores.userStore))
+	r.Post("/auth/password/reset", auth.ResetPassword(s.stores.userStore))
 
 	return r
 }

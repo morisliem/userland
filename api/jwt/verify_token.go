@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 
-	"github.com/golang-jwt/jwt"
+	"github.com/dgrijalva/jwt-go"
 )
 
 func VerifyToken(r *http.Request) (*jwt.Token, error) {
@@ -16,7 +17,7 @@ func VerifyToken(r *http.Request) (*jwt.Token, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method : %v", token.Header["alg"])
 		}
-		return []byte(os.Getenv("ACCESS_KEY")), nil
+		return []byte(os.Getenv("ACCESS_TOKEN")), nil
 	})
 
 	if err != nil {
@@ -25,15 +26,19 @@ func VerifyToken(r *http.Request) (*jwt.Token, error) {
 	return token, nil
 }
 
-func TokenValid(r *http.Request) error {
+func TokenValid(r *http.Request) (string, error) {
 	token, err := VerifyToken(r)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	if _, ok := token.Claims.(jwt.Claims); !ok && !token.Valid {
-		return errors.New("token is invalid")
+		return "", errors.New("token is invalid")
 	}
 
-	return nil
+	tmp := fmt.Sprintf("%v", token.Claims)
+	loc := strings.Index(tmp, "user_id:")
+	userId := tmp[loc+8 : len(tmp)-1]
+
+	return userId, nil
 }

@@ -7,7 +7,7 @@ type Bad_Request struct {
 
 func Bad_request(s string) Bad_Request {
 	res := Bad_Request{
-		Code:    400,
+		Code:    0,
 		Message: s,
 	}
 
