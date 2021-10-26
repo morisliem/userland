@@ -17,7 +17,7 @@ type RequestRequest struct {
 	Confirm_password string `json:"confirm_password"`
 }
 
-func Register(userStore store.UserStore) http.HandlerFunc {
+func Register(userStore store.UserStore, tokenStore store.TokenStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request RequestRequest
 		ctx := r.Context()
@@ -40,14 +40,24 @@ func Register(userStore store.UserStore) http.HandlerFunc {
 			return
 		}
 
-		// Storing the request to user struct
 		newRegister := store.User{
 			Fullname: request.Fullname,
 			Email:    request.Email,
 			Password: hashPassword,
 		}
+		rn := helper.GenerateRandomNumber()
 
-		err = userStore.RegisterUser(ctx, newRegister)
+		err = userStore.RegisterUser(ctx, newRegister, rn)
+		if err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(response.Response(err.Error()))
+			return
+		}
+
+		go helper.SendEmailVerCode(newRegister.Email, rn)
+
+		err = tokenStore.SetEmailVerificationCode(newRegister.Email, rn)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
@@ -81,8 +91,8 @@ func (rr *RequestRequest) ValidateRequest() (map[string]string, error) {
 		res["unmatch_password"] = "check again your password"
 	}
 
-	if len(res) > 1 {
-		return res, errors.New("Error")
+	if len(res) > 0 {
+		return res, errors.New("error")
 	} else {
 		return res, nil
 	}

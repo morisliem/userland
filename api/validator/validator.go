@@ -2,8 +2,8 @@ package validator
 
 import (
 	"errors"
+	"fmt"
 	"net"
-	"regexp"
 	"strings"
 )
 
@@ -12,36 +12,32 @@ func ValidateFullname(s string) error {
 		return errors.New("fullname is required")
 	}
 	if len(s) > 64 {
-		return errors.New("fullname cannot exceed 256 characters")
+		return errors.New("fullname cannot exceed 64 characters")
 	}
 	return nil
 }
 
-// Got bug sometime it works, some time it doesn't work
 func ValidateEmail(s string) error {
-	emailRegex, err := regexp.Compile("^[a-zA-Z0-9.!#$%&'*+\\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$")
-
-	if err != nil {
-		return errors.New("sorry, something went wrong")
-	}
-
-	er := emailRegex.MatchString(s)
-	if !er {
-		return errors.New("email address is not valid")
-	}
-
 	if len(strings.TrimSpace(s)) == 0 {
 		return errors.New("email is required")
 	}
 	if len(s) > 128 {
-		return errors.New("email cannot exceed 256 characters")
+		return errors.New("email cannot exceed 128 characters")
+	}
+
+	if !strings.Contains(s, ".") {
+		return errors.New("email is missing . ")
+	}
+
+	if !strings.Contains(s, "@") {
+		return errors.New("email is missing @")
 	}
 
 	// Checking email domain
 	i := strings.Index(s, "@")
 	host := s[i+1:]
 
-	_, err = net.LookupMX(host)
+	_, err := net.LookupMX(host)
 	if err != nil {
 		return errors.New("could not find email's domain server")
 	}
@@ -91,4 +87,15 @@ func ValidatePassword(s string) error {
 		}
 		return nil
 	}
+}
+
+func ValidateCode(code int) error {
+	tmp := fmt.Sprintf("%v", code)
+
+	if len(strings.TrimSpace(tmp)) == 0 {
+		return errors.New("code is required")
+	}
+
+	return nil
+
 }

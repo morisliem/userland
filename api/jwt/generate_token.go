@@ -1,24 +1,46 @@
 package jwt
 
 import (
+	"fmt"
 	"os"
 	"time"
+	"userland/store"
 
-	"github.com/dgrijalva/jwt-go"
+	"github.com/gofrs/uuid"
+	"github.com/golang-jwt/jwt"
 )
 
-func GenerateToken(userId string) (string, error) {
+func GenerateToken(userId string) (store.TokenDetails, error) {
+	td := store.TokenDetails{}
+	td.AtExpires = time.Now().Add(time.Minute * 1).Unix()
+	accessUuid, _ := uuid.NewV4()
+	td.AccessUuid = fmt.Sprintf("%v", accessUuid)
+
+	td.RtExpires = time.Now().Add(time.Hour * 24 * 7).Unix()
+	refreshUuid, _ := uuid.NewV4()
+	td.RefreshUuid = fmt.Sprintf("%v", refreshUuid)
+
 	var err error
 
-	claims := jwt.MapClaims{}
-	claims["autorized"] = true
-	claims["user_id"] = userId
-	claims["exp"] = time.Now().Add(time.Minute * 15).Unix()
-	at := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-
-	token, err := at.SignedString([]byte(os.Getenv("ACCESS_KEY")))
+	atClaims := jwt.MapClaims{}
+	atClaims["user_id"] = userId
+	atClaims["access_uuid"] = td.AccessUuid
+	atClaims["exp"] = td.AtExpires
+	at := jwt.NewWithClaims(jwt.SigningMethodHS256, atClaims)
+	td.AccessToken, err = at.SignedString([]byte(os.Getenv("ACCESS_KEY")))
 	if err != nil {
-		return "", err
+		return td, err
 	}
-	return token, nil
+
+	rtClaims := jwt.MapClaims{}
+	rtClaims["user_id"] = userId
+	rtClaims["refresh_uuid"] = td.RefreshUuid
+	rtClaims["exp"] = td.RtExpires
+	rt := jwt.NewWithClaims(jwt.SigningMethodHS256, rtClaims)
+	td.RefreshToken, err = rt.SignedString([]byte(os.Getenv("REFRESH_KEY")))
+	if err != nil {
+		return td, err
+	}
+
+	return td, nil
 }

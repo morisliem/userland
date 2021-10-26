@@ -1,4 +1,4 @@
-package auth
+package mydetail
 
 import (
 	"encoding/json"
@@ -10,19 +10,24 @@ import (
 	"userland/store"
 )
 
-type ResetPasswordRequest struct {
-	Email            string `json:"email"`
-	Code             int    `json:"code"`
+type ChangePasswordRequest struct {
+	Current_Password string `json:"current_password"`
 	Password         string `json:"password"`
-	Confirm_password string `json:"confirm_password"`
+	Confirm_Password string `json:"confirm_password"`
 }
 
-func ResetPassword(userStore store.UserStore, tokenStore store.TokenStore) http.HandlerFunc {
+func ChangeUserPassword(userStore store.UserStore, tokenStore store.TokenStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var request ResetPasswordRequest
-		ctx := r.Context()
+		var request ChangePasswordRequest
+		userId, err := helper.AuthenticateUser(r, tokenStore)
+		if err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnauthorized)
+			json.NewEncoder(w).Encode(response.Unautorized_request(err.Error()))
+			return
+		}
 
-		err := json.NewDecoder(r.Body).Decode(&request)
+		err = json.NewDecoder(r.Body).Decode(&request)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadRequest)
@@ -38,31 +43,18 @@ func ResetPassword(userStore store.UserStore, tokenStore store.TokenStore) http.
 			return
 		}
 
-		code, err := tokenStore.GetEmailVarificationCode(request.Email)
-		if err != nil {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(response.Bad_request(err.Error()))
-			return
-		}
-
-		if code != request.Code {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(response.Response("invalid code"))
-			return
-		}
-
-		userId, err := userStore.GetUserid(ctx, request.Email)
-		if err != nil {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(response.Bad_request(err.Error()))
-			return
-		}
-
-		listOfPwd, _ := userStore.GetPasswords(ctx, userId)
+		listOfPwd, _ := userStore.GetPasswords(r.Context(), userId)
 		reverse(listOfPwd)
+
+		if !helper.ComparePasswordHash(request.Current_Password, listOfPwd[0]) {
+			res := map[string]string{
+				"message": "password incorrect",
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			json.NewEncoder(w).Encode(response.UnproccesableEntity(res))
+			return
+		}
 
 		loopTo := 0
 		if len(listOfPwd) > 3 {
@@ -90,42 +82,44 @@ func ResetPassword(userStore store.UserStore, tokenStore store.TokenStore) http.
 			return
 		}
 
-		newResetPasswordRequest := store.User{
+		newPassword := store.User{
 			Password: hashPassword,
 		}
 
-		err = userStore.UpdatePassword(ctx, userId, newResetPasswordRequest)
+		err = userStore.UpdatePassword(r.Context(), userId, newPassword)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(response.Response(err.Error()))
 			return
 		}
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
 		json.NewEncoder(w).Encode(response.Success())
+
 	}
 }
 
-func (rpr *ResetPasswordRequest) ValidateRequest() (map[string]string, error) {
+func (cpr *ChangePasswordRequest) ValidateRequest() (map[string]string, error) {
 	res := map[string]string{}
 
-	errCode := validator.ValidateCode(rpr.Code)
-	if errCode != nil {
-		res["code"] = errCode.Error()
+	err := validator.ValidatePassword(cpr.Current_Password)
+	if err != nil {
+		res["current_password"] = err.Error()
 	}
 
-	errPwd := validator.ValidatePassword(rpr.Password)
-	if errPwd != nil {
-		res["password"] = errPwd.Error()
+	err = validator.ValidatePassword(cpr.Password)
+	if err != nil {
+		res["password"] = err.Error()
 	}
 
-	errCPwd := validator.ValidatePassword(rpr.Confirm_password)
-	if errCPwd != nil {
-		res["confirm_password"] = errCPwd.Error()
+	err = validator.ValidatePassword(cpr.Confirm_Password)
+	if err != nil {
+		res["confirm_password"] = err.Error()
 	}
 
-	if rpr.Password != rpr.Confirm_password {
+	if cpr.Password != cpr.Confirm_Password {
 		res["unmatch_password"] = "check again your password"
 	}
 
