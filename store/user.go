@@ -6,7 +6,7 @@ import (
 )
 
 type User struct {
-	Id         uint64    `json:"Id"`
+	Id         string    `json:"Id"`
 	Fullname   string    `json:"fullname"`
 	Email      string    `json:"email"`
 	Password   string    `json:"password"`
@@ -20,7 +20,17 @@ type User struct {
 
 type UserStore interface {
 	GetUserId(ctx context.Context, u User) (string, error)
-	RegisterUser(ctx context.Context, u User) error
-	ResetPassword(ctx context.Context, uid string, u User) error
+	GetUserid(ctx context.Context, email string) (string, error)
+	RegisterUser(ctx context.Context, u User, rn int) error
+	UpdatePassword(ctx context.Context, uid string, u User) error
 	ValidateCode(ctx context.Context, u User) error
+	GetUserCode(ctx context.Context, u User) (int, error)
+	GetPasswords(ctx context.Context, uid string) ([]string, error)
+	GetUserState(ctx context.Context, u User) (int, error)
+	GetUserDetail(ctx context.Context, uid string) (User, error)
+	UpdateUserDetail(ctx context.Context, u User, uid string) error
+	GetUserEmail(ctx context.Context, uid string) (User, error)
+	UpdateUserEmail(ctx context.Context, u User, uid string) error
+	DeleteAccount(ctx context.Context, uid string) error
+	EmailExist(ctx context.Context, u User) error
 }

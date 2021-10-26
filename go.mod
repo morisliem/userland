@@ -3,10 +3,10 @@ module userland
 go 1.16
 
 require (
-	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/go-chi/chi/v5 v5.0.4
 	github.com/go-redis/redis v6.15.9+incompatible
 	github.com/gofrs/uuid v4.1.0+incompatible
+	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/jackc/pgx/v4 v4.13.0
 	github.com/joho/godotenv v1.4.0
 	github.com/onsi/gomega v1.16.0 // indirect
