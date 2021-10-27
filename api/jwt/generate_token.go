@@ -10,15 +10,11 @@ import (
 	"github.com/golang-jwt/jwt"
 )
 
-func GenerateToken(userId string) (store.TokenDetails, error) {
+func GenerateAccessToken(userId string) (store.TokenDetails, error) {
 	td := store.TokenDetails{}
-	td.AtExpires = time.Now().Add(time.Minute * 1).Unix()
+	td.AtExpires = time.Now().Add(time.Minute * 30).Unix()
 	accessUuid, _ := uuid.NewV4()
 	td.AccessUuid = fmt.Sprintf("%v", accessUuid)
-
-	td.RtExpires = time.Now().Add(time.Hour * 24 * 7).Unix()
-	refreshUuid, _ := uuid.NewV4()
-	td.RefreshUuid = fmt.Sprintf("%v", refreshUuid)
 
 	var err error
 
@@ -26,12 +22,21 @@ func GenerateToken(userId string) (store.TokenDetails, error) {
 	atClaims["user_id"] = userId
 	atClaims["access_uuid"] = td.AccessUuid
 	atClaims["exp"] = td.AtExpires
+	atClaims["jti"] = td.AccessUuid
 	at := jwt.NewWithClaims(jwt.SigningMethodHS256, atClaims)
 	td.AccessToken, err = at.SignedString([]byte(os.Getenv("ACCESS_KEY")))
 	if err != nil {
 		return td, err
 	}
+	return td, nil
+}
 
+func GenerateRefreshToken(userId string) (store.TokenDetails, error) {
+	td := store.TokenDetails{}
+	td.RtExpires = time.Now().Add(time.Hour * 24 * 7).Unix()
+	refreshUuid, _ := uuid.NewV4()
+	td.RefreshUuid = fmt.Sprintf("%v", refreshUuid)
+	var err error
 	rtClaims := jwt.MapClaims{}
 	rtClaims["user_id"] = userId
 	rtClaims["refresh_uuid"] = td.RefreshUuid
@@ -41,6 +46,5 @@ func GenerateToken(userId string) (store.TokenDetails, error) {
 	if err != nil {
 		return td, err
 	}
-
 	return td, nil
 }

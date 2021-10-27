@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"userland/api/helper"
 	"userland/api/jwt"
 	"userland/api/response"
 	"userland/api/validator"
@@ -59,7 +60,7 @@ func Login(userStore store.UserStore, tokenStore store.TokenStore) http.HandlerF
 			return
 		}
 
-		ts, err := jwt.GenerateToken(userId)
+		ts, err := jwt.GenerateAccessToken(userId)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadRequest)
@@ -67,7 +68,7 @@ func Login(userStore store.UserStore, tokenStore store.TokenStore) http.HandlerF
 			return
 		}
 
-		saveErr := jwt.CreateAuth(userId, ts, tokenStore)
+		saveErr := jwt.CreateATAuth(userId, ts, tokenStore)
 		if saveErr != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadRequest)
@@ -75,17 +76,27 @@ func Login(userStore store.UserStore, tokenStore store.TokenStore) http.HandlerF
 			return
 		}
 
-		cookie1 := &http.Cookie{
-			Name:  "access_token",
-			Value: ts.AccessToken,
+		ip, err := helper.GetUserIp()
+		if err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(response.Response(err.Error()))
+			return
 		}
 
-		cookie2 := &http.Cookie{
-			Name:  "refresh_token",
-			Value: ts.RefreshToken,
+		// Add session here
+		err = userStore.SetUserSession(ctx, ts, userId, ip)
+		if err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(response.Response(err.Error()))
+			return
 		}
-		http.SetCookie(w, cookie1)
-		http.SetCookie(w, cookie2)
+
+		http.SetCookie(w, &http.Cookie{
+			Name:  "access_token",
+			Value: ts.AccessToken,
+		})
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)

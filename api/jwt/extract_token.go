@@ -19,8 +19,8 @@ func ExtractToken(r *http.Request) string {
 	return ""
 }
 
-func ExtractTokenMetadata(r *http.Request) (*store.AccessDetail, error) {
-	token, err := VerifyToken(r)
+func ExtractAccessTokenMetadata(r *http.Request) (*store.AccessDetail, error) {
+	token, err := VerifyAccessToken(r)
 	if err != nil {
 		return nil, err
 	}
@@ -34,6 +34,26 @@ func ExtractTokenMetadata(r *http.Request) (*store.AccessDetail, error) {
 		return &store.AccessDetail{
 			AccessUuid: accessUuid,
 			UserId:     userId,
+		}, nil
+	}
+	return nil, nil
+}
+
+func ExtractRefreshTokenMetadata(r *http.Request) (*store.RefreshDetail, error) {
+	token, err := VerifyRefreshToken(r)
+	if err != nil {
+		return nil, err
+	}
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if ok && token.Valid {
+		refreshUuid, ok := claims["refresh_uuid"].(string)
+		if !ok {
+			return nil, err
+		}
+		userId := claims["user_id"].(string)
+		return &store.RefreshDetail{
+			RefreshUuid: refreshUuid,
+			UserId:      userId,
 		}, nil
 	}
 	return nil, nil

@@ -39,8 +39,16 @@ func (ts *TokenStore) StoreRefresh(userId string, td store.TokenDetails) error {
 	return nil
 }
 
-func (ts *TokenStore) GetUserId(td *store.AccessDetail) (string, error) {
+func (ts *TokenStore) GetAtUserId(td *store.AccessDetail) (string, error) {
 	userId, err := ts.db.Get(td.AccessUuid).Result()
+	if err != nil {
+		return "", err
+	}
+	return userId, nil
+}
+
+func (ts *TokenStore) GetRtUserId(td *store.RefreshDetail) (string, error) {
+	userId, err := ts.db.Get(td.RefreshUuid).Result()
 	if err != nil {
 		return "", err
 	}

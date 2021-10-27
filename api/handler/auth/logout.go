@@ -10,7 +10,7 @@ import (
 
 func Logout(tokenStore store.TokenStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		au, err := jwt.ExtractTokenMetadata(r)
+		au, err := jwt.ExtractAccessTokenMetadata(r)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusUnauthorized)

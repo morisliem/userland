@@ -18,7 +18,7 @@ func UpdateUserEmail(userStore store.UserStore, tokenStore store.TokenStore) htt
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request UpdateEmailRequest
 
-		userId, err := helper.AuthenticateUser(r, tokenStore)
+		userId, err := helper.AuthenticateUserAccessToken(r, tokenStore)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusUnauthorized)

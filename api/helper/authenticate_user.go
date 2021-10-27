@@ -6,13 +6,27 @@ import (
 	"userland/store"
 )
 
-func AuthenticateUser(r *http.Request, tokenStore store.TokenStore) (string, error) {
-	tokenAuth, err := jwt.ExtractTokenMetadata(r)
+func AuthenticateUserAccessToken(r *http.Request, tokenStore store.TokenStore) (string, error) {
+	tokenAuth, err := jwt.ExtractAccessTokenMetadata(r)
 	if err != nil {
 		return "", err
 	}
 
-	userId, err := jwt.FetchAuth(tokenAuth, tokenStore)
+	userId, err := jwt.FetchATAuth(tokenAuth, tokenStore)
+	if err != nil {
+		return "", err
+	}
+
+	return userId, nil
+}
+
+func AuthenticateUserRefreshToken(r *http.Request, tokenStore store.TokenStore) (string, error) {
+	tokenAuth, err := jwt.ExtractRefreshTokenMetadata(r)
+	if err != nil {
+		return "", err
+	}
+
+	userId, err := jwt.FetchRTAuth(tokenAuth, tokenStore)
 	if err != nil {
 		return "", err
 	}

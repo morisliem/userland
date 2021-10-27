@@ -11,6 +11,7 @@ import (
 	"time"
 	"userland/api/handler/auth"
 	mydetail "userland/api/handler/my_detail"
+	mysession "userland/api/handler/my_session"
 	"userland/store"
 	"userland/store/postgres"
 	"userland/store/rediss"
@@ -113,7 +114,6 @@ func (s *Server) createHandlers() http.Handler {
 	r.Post("/auth/login", auth.Login(s.stores.userStore, s.stores.tokenStore))
 	r.Post("/auth/password/forget", auth.ForgetPassword(s.stores.userStore, s.stores.tokenStore))
 	r.Post("/auth/password/reset", auth.ResetPassword(s.stores.userStore, s.stores.tokenStore))
-	r.Post("/auth/refresh_token", auth.RefreshToken(s.stores.userStore, s.stores.tokenStore))
 
 	r.Get("/me", mydetail.GetUserDetail(s.stores.userStore, s.stores.tokenStore))
 	r.Post("/me", mydetail.UpdateUserDetail(s.stores.userStore, s.stores.tokenStore))
@@ -122,6 +122,10 @@ func (s *Server) createHandlers() http.Handler {
 	r.Post("/me/password", mydetail.ChangeUserPassword(s.stores.userStore, s.stores.tokenStore))
 	r.Post("/me/picture", mydetail.SetUserPicture(s.stores.userStore, s.stores.tokenStore))
 	r.Post("/me/delete", mydetail.DeleteUserAccount(s.stores.userStore, s.stores.tokenStore))
+
+	r.Get("/me/session", mysession.GetUserSession(s.stores.userStore, s.stores.tokenStore))
+	r.Get("/me/session/refresh_token", mysession.GetRefreshToken(s.stores.userStore, s.stores.tokenStore))
+	r.Get("/me/session/access_token", mysession.GetAccessToken(s.stores.userStore, s.stores.tokenStore))
 
 	return r
 }

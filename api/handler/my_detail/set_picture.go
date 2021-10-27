@@ -44,6 +44,7 @@ func SetUserPicture(userStore store.UserStore, tokenStore store.TokenStore) http
 
 		fileBytes, err := ioutil.ReadAll(file)
 		if err != nil {
+			fmt.Println("here")
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(response.Bad_request(err.Error()))
@@ -52,7 +53,7 @@ func SetUserPicture(userStore store.UserStore, tokenStore store.TokenStore) http
 
 		// fmt.Println(fileBytes)
 
-		err = ioutil.WriteFile("./img/test.png", fileBytes, 0644)
+		err = ioutil.WriteFile("./img/test.png", fileBytes, 0777)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadRequest)

@@ -14,10 +14,16 @@ type AccessDetail struct {
 	UserId     string
 }
 
+type RefreshDetail struct {
+	RefreshUuid string
+	UserId      string
+}
+
 type TokenStore interface {
 	StoreAccess(userId string, td TokenDetails) error
 	StoreRefresh(userId string, td TokenDetails) error
-	GetUserId(td *AccessDetail) (string, error)
+	GetAtUserId(td *AccessDetail) (string, error)
+	GetRtUserId(td *RefreshDetail) (string, error)
 	DeleteUserId(userId string) (int64, error)
 	SetEmailVerificationCode(email string, code int) error
 	GetEmailVarificationCode(email string) (int, error)

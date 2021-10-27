@@ -62,16 +62,8 @@ func ResetPassword(userStore store.UserStore, tokenStore store.TokenStore) http.
 		}
 
 		listOfPwd, _ := userStore.GetPasswords(ctx, userId)
-		reverse(listOfPwd)
 
-		loopTo := 0
-		if len(listOfPwd) > 3 {
-			loopTo = 2
-		} else {
-			loopTo = len(listOfPwd) - 1
-		}
-
-		for i := 0; i < loopTo; i++ {
+		for i := 0; i < len(listOfPwd); i++ {
 			if helper.ComparePasswordHash(request.Password, listOfPwd[i]) {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusUnprocessableEntity)
@@ -133,11 +125,5 @@ func (rpr *ResetPasswordRequest) ValidateRequest() (map[string]string, error) {
 		return res, errors.New("Error")
 	} else {
 		return res, nil
-	}
-}
-
-func reverse(s []string) {
-	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
-		s[i], s[j] = s[j], s[i]
 	}
 }
