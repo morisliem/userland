@@ -121,6 +121,7 @@ func (s *Server) createHandlers() http.Handler {
 	r.Post("/me/email", mydetail.UpdateUserEmail(s.stores.userStore, s.stores.tokenStore))
 	r.Post("/me/password", mydetail.ChangeUserPassword(s.stores.userStore, s.stores.tokenStore))
 	r.Post("/me/picture", mydetail.SetUserPicture(s.stores.userStore, s.stores.tokenStore))
+	r.Delete("/me/picture", mydetail.DeleteUserProfilePicture(s.stores.userStore, s.stores.tokenStore))
 	r.Post("/me/delete", mydetail.DeleteUserAccount(s.stores.userStore, s.stores.tokenStore))
 
 	r.Get("/me/session", mysession.GetUserSession(s.stores.userStore, s.stores.tokenStore))

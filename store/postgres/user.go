@@ -532,6 +532,88 @@ func (us *UserStore) DeleteAccount(ctx context.Context, uid string) error {
 	return nil
 }
 
+func (us *UserStore) DeleteUserPicture(ctx context.Context, uid string) error {
+	var tx *sql.Tx
+	tx, err := us.db.Begin()
+
+	if err != nil {
+		log.Error().Err(err).Msg("failed to begin transaction")
+		return errors.New("failed to remove user picture")
+	}
+
+	defer tx.Rollback()
+	defer func() {
+		if rollBackErr := tx.Rollback(); rollBackErr == nil {
+			log.Error().Err(err).Msg("rolling back changes")
+		}
+	}()
+
+	var setPicture *sql.Stmt
+	setPicture, err = tx.Prepare(`UPDATE person Set Picture = $2 Where id = $1`)
+	if err != nil {
+		log.Error().Err(err).Msg("error preparing statement")
+		return errors.New("failed to remove user picture")
+	}
+	defer setPicture.Close()
+
+	result, err := setPicture.Exec(uid, nil)
+	rowsAff, _ := result.RowsAffected()
+
+	if err != nil || rowsAff != 1 {
+		log.Error().Err(err).Msg("error inserting user session")
+		return errors.New("failed to remove user picture")
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		log.Error().Err(err).Msg("error committing changes")
+		return errors.New("failed to remove user picture")
+	}
+
+	return nil
+}
+
+func (us *UserStore) SetUserPicture(ctx context.Context, uid string, pict string) error {
+	var tx *sql.Tx
+	tx, err := us.db.Begin()
+
+	if err != nil {
+		log.Error().Err(err).Msg("failed to begin transaction")
+		return errors.New("failed to add user picture")
+	}
+
+	defer tx.Rollback()
+	defer func() {
+		if rollBackErr := tx.Rollback(); rollBackErr == nil {
+			log.Error().Err(err).Msg("rolling back changes")
+		}
+	}()
+
+	var setPicture *sql.Stmt
+	setPicture, err = tx.Prepare(`UPDATE person Set Picture = $2 Where id = $1`)
+	if err != nil {
+		log.Error().Err(err).Msg("error preparing statement")
+		return errors.New("failed to add user picture")
+	}
+	defer setPicture.Close()
+
+	result, err := setPicture.Exec(uid, pict)
+	rowsAff, _ := result.RowsAffected()
+
+	if err != nil || rowsAff != 1 {
+		log.Error().Err(err).Msg("error inserting user session")
+		return errors.New("failed to add user picture")
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		log.Error().Err(err).Msg("error committing changes")
+		return errors.New("failed to add user picture")
+	}
+
+	return nil
+}
+
 func (us *UserStore) SetUserSession(ctx context.Context, t store.TokenDetails, uid string, ip string) error {
 	var tx *sql.Tx
 	tx, err := us.db.Begin()

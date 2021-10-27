@@ -42,6 +42,8 @@ type UserStore interface {
 	GetPasswords(ctx context.Context, uid string) ([]string, error)
 	GetUserState(ctx context.Context, u User) (int, error)
 	GetUserDetail(ctx context.Context, uid string) (User, error)
+	SetUserPicture(ctx context.Context, uid string, pict string) error
+	DeleteUserPicture(ctx context.Context, uid string) error
 	UpdateUserDetail(ctx context.Context, u User, uid string) error
 	GetUserEmail(ctx context.Context, uid string) (User, error)
 	UpdateUserEmail(ctx context.Context, u User, uid string) error

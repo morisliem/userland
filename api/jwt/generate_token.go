@@ -22,7 +22,6 @@ func GenerateAccessToken(userId string) (store.TokenDetails, error) {
 	atClaims["user_id"] = userId
 	atClaims["access_uuid"] = td.AccessUuid
 	atClaims["exp"] = td.AtExpires
-	atClaims["jti"] = td.AccessUuid
 	at := jwt.NewWithClaims(jwt.SigningMethodHS256, atClaims)
 	td.AccessToken, err = at.SignedString([]byte(os.Getenv("ACCESS_KEY")))
 	if err != nil {
