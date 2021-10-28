@@ -63,6 +63,7 @@ func ResetPassword(userStore store.UserStore, tokenStore store.TokenStore) http.
 
 		listOfPwd, _ := userStore.GetPasswords(ctx, userId)
 
+		// checking if user has used the password before
 		for i := 0; i < len(listOfPwd); i++ {
 			if helper.ComparePasswordHash(request.Password, listOfPwd[i]) {
 				w.Header().Set("Content-Type", "application/json")

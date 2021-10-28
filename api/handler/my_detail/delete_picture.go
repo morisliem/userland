@@ -3,6 +3,7 @@ package mydetail
 import (
 	"encoding/json"
 	"net/http"
+	"os"
 	"userland/api/helper"
 	"userland/api/response"
 	"userland/store"
@@ -15,6 +16,23 @@ func DeleteUserProfilePicture(userStore store.UserStore, tokenStore store.TokenS
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusUnauthorized)
 			json.NewEncoder(w).Encode(response.Unautorized_request(err.Error()))
+			return
+		}
+
+		picName, err := userStore.GetUserProfilePicture(r.Context(), userId)
+		if err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(response.Response(err.Error()))
+			return
+		}
+
+		// removing the file from img directory
+		err = os.Remove("./img/" + picName)
+		if err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(response.Response(err.Error()))
 			return
 		}
 

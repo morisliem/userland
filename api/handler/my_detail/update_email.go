@@ -27,7 +27,7 @@ func UpdateUserEmail(userStore store.UserStore, tokenStore store.TokenStore) htt
 			return
 		}
 
-		atJti, _, err := jwt.GetAtJtinRtJti(r)
+		atJti, rtJti, err := jwt.GetAtJtinRtJti(r)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusUnauthorized)
@@ -86,8 +86,19 @@ func UpdateUserEmail(userStore store.UserStore, tokenStore store.TokenStore) htt
 		deleted, err := jwt.DeleteATAuth(atJti, tokenStore)
 		if err != nil || deleted == 0 {
 			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusUnauthorized)
+			w.WriteHeader(http.StatusInternalServerError)
 			return
+		}
+
+		// removing the current refresh token in redis
+		// only after the user updated their access token
+		if rtJti != "" {
+			deleted, err = jwt.DeleteRTAuth(rtJti, tokenStore)
+			if err != nil || deleted == 0 {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
 		}
 
 		w.Header().Set("Content-Type", "application/json")

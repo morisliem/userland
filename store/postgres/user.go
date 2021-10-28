@@ -534,6 +534,20 @@ func (us *UserStore) DeleteAccount(ctx context.Context, uid string) error {
 	return nil
 }
 
+func (us *UserStore) GetUserProfilePicture(ctx context.Context, uid string) (string, error) {
+	psqlStatement := `SELECT picture from PERSON WHERE id = $1`
+
+	res := us.db.QueryRow(psqlStatement, uid)
+	var pictureName string
+	err := res.Scan(&pictureName)
+	if err != nil {
+		log.Error().Err(err).Msg(err.Error())
+		return "", errors.New("failed to get user picture")
+	}
+
+	return pictureName, nil
+}
+
 func (us *UserStore) DeleteUserPicture(ctx context.Context, uid string) error {
 	var tx *sql.Tx
 	tx, err := us.db.Begin()

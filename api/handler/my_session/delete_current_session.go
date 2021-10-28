@@ -19,6 +19,7 @@ func DeleteCurrentSession(userStore store.UserStore, tokenStore store.TokenStore
 			return
 		}
 
+		// getting the jwt id for access token and refresh token
 		atJti, rtJti, err := jwt.GetAtJtinRtJti(r)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
@@ -34,6 +35,7 @@ func DeleteCurrentSession(userStore store.UserStore, tokenStore store.TokenStore
 			return
 		}
 
+		// removing the current access token in redis
 		deleted, err := jwt.DeleteATAuth(atJti, tokenStore)
 		if err != nil || deleted == 0 {
 			w.Header().Set("Content-Type", "application/json")
@@ -41,11 +43,15 @@ func DeleteCurrentSession(userStore store.UserStore, tokenStore store.TokenStore
 			return
 		}
 
-		deleted, err = jwt.DeleteATAuth(rtJti, tokenStore)
-		if err != nil || deleted == 0 {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusInternalServerError)
-			return
+		// removing the current refresh token in redis
+		// only after the user updated their access token
+		if rtJti != "" {
+			deleted, err = jwt.DeleteRTAuth(rtJti, tokenStore)
+			if err != nil || deleted == 0 {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
 		}
 
 		w.Header().Set("Content-Type", "application/json")

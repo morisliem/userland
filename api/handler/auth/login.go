@@ -50,6 +50,7 @@ func Login(userStore store.UserStore, tokenStore store.TokenStore) http.HandlerF
 			return
 		}
 
+		// To check if the user has activated their email or not
 		if is_active != 1 {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadRequest)
@@ -65,6 +66,7 @@ func Login(userStore store.UserStore, tokenStore store.TokenStore) http.HandlerF
 			return
 		}
 
+		// Generate access token but still missing the refresh token id
 		ts, err := jwt.GenerateAccessToken(userId, "", "")
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")

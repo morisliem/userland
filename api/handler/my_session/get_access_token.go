@@ -42,6 +42,7 @@ func GetAccessToken(userStore store.UserStore, tokenStore store.TokenStore) http
 			return
 		}
 
+		// generated new access token by adding the current jwt id (access token) and adding refresh token jwt id
 		res, err := jwt.GenerateAccessToken(userId, atJti, rtJti)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")

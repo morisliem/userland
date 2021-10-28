@@ -56,4 +56,5 @@ type UserStore interface {
 	DeleteCurrentSession(ctx context.Context, sessionId string) error
 	DeleteOtherSession(ctx context.Context, uid string, sessionId string) error
 	GetSessionsId(ctx context.Context, uid string) ([]string, error)
+	GetUserProfilePicture(ctx context.Context, uid string) (string, error)
 }
