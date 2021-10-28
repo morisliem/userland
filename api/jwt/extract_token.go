@@ -31,9 +31,11 @@ func ExtractAccessTokenMetadata(r *http.Request) (*store.AccessDetail, error) {
 			return nil, err
 		}
 		userId := claims["user_id"].(string)
+		refresh_jti := claims["refresh_jti"].(string)
 		return &store.AccessDetail{
 			AccessUuid: accessUuid,
 			UserId:     userId,
+			RefreshJti: refresh_jti,
 		}, nil
 	}
 	return nil, nil
@@ -51,9 +53,11 @@ func ExtractRefreshTokenMetadata(r *http.Request) (*store.RefreshDetail, error) 
 			return nil, err
 		}
 		userId := claims["user_id"].(string)
+		access_jti := claims["access_jti"].(string)
 		return &store.RefreshDetail{
 			RefreshUuid: refreshUuid,
 			UserId:      userId,
+			AccessJti:   access_jti,
 		}, nil
 	}
 	return nil, nil

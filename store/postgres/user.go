@@ -130,19 +130,19 @@ func (us *UserStore) GetUserCode(ctx context.Context, u store.User) (int, error)
 	return code, nil
 }
 
-func (us *UserStore) GetUserState(ctx context.Context, u store.User) (int, error) {
+func (us *UserStore) EmailActive(ctx context.Context, u store.User) (int, error) {
 	psqlStatement := `SELECT is_active FROM Person WHERE Email = $1`
 
 	res := us.db.QueryRow(psqlStatement, u.Email)
-	var state int
+	var is_active int
 
-	err := res.Scan(&state)
+	err := res.Scan(&is_active)
 
 	if err != nil {
 		log.Error().Err(err).Msg(err.Error())
 		return -1, errors.New("unable to find the user")
 	}
-	return state, nil
+	return is_active, nil
 }
 
 func (us *UserStore) GetPassword(ctx context.Context, uid string) (string, error) {
@@ -182,6 +182,7 @@ func (us *UserStore) GetPasswords(ctx context.Context, uid string) ([]string, er
 	return pwd, nil
 }
 
+// Have to handle all various error from db
 func (us *UserStore) EmailExist(ctx context.Context, u store.User) error {
 	psqlStatement := `SELECT email FROM PERSON WHERE EMAIL = $1`
 
@@ -310,6 +311,7 @@ func (us *UserStore) ValidateCode(ctx context.Context, u store.User) error {
 	return nil
 }
 
+// Have to handle all various error from db
 func (us *UserStore) GetUserDetail(ctx context.Context, uid string) (store.User, error) {
 	var response store.User
 	psqlstatement := `SELECT * FROM person WHERE id = $1`
@@ -614,7 +616,7 @@ func (us *UserStore) SetUserPicture(ctx context.Context, uid string, pict string
 	return nil
 }
 
-func (us *UserStore) SetUserSession(ctx context.Context, t store.TokenDetails, uid string, ip string) error {
+func (us *UserStore) SetUserSession(ctx context.Context, t store.TokenDetails, uid string, ip string, device string) error {
 	var tx *sql.Tx
 	tx, err := us.db.Begin()
 
@@ -631,14 +633,14 @@ func (us *UserStore) SetUserSession(ctx context.Context, t store.TokenDetails, u
 	}()
 
 	var setSession *sql.Stmt
-	setSession, err = tx.Prepare(`INSERT into SESSION (id, userid, ip_address, created_at) VALUES ($1,$2,$3,$4)`)
+	setSession, err = tx.Prepare(`INSERT into SESSION (id, userid, ip_address, created_at, device) VALUES ($1,$2,$3,$4,$5)`)
 	if err != nil {
 		log.Error().Err(err).Msg("error preparing statement")
 		return errors.New("failed to set user session")
 	}
 	defer setSession.Close()
 
-	result, err := setSession.Exec(t.AccessUuid, uid, ip, time.Now())
+	result, err := setSession.Exec(t.AccessUuid, uid, ip, time.Now(), device)
 	rowsAff, _ := result.RowsAffected()
 
 	if err != nil || rowsAff != 1 {
@@ -655,50 +657,282 @@ func (us *UserStore) SetUserSession(ctx context.Context, t store.TokenDetails, u
 	return nil
 }
 
-func (us *UserStore) GetUserSession(ctx context.Context, uid string) (store.UserSession, error) {
-	psqlStatement := `SELECT * FROM session WHERE userid = $1`
+func (us *UserStore) GetUserSession(ctx context.Context, uid string, sessionId string) (store.UserSession, error) {
+	psqlStatement1 := `SELECT ip_address, created_at, updated_at FROM session WHERE id = $1`
+	psqlStatement2 := `SELECT id, device FROM session WHERE userid = $1`
 	var userSessionResponse store.UserSession
 	var userInfo store.UserInfo
+	var ip string
+	var created_at time.Time
+	var updated_at sql.NullTime
+	var tmpUat time.Time
 
-	res, err := us.db.Query(psqlStatement, uid)
+	// first sql query to get the user current session info
+	res1 := us.db.QueryRow(psqlStatement1, sessionId)
+	err := res1.Scan(&ip, &created_at, &updated_at)
 	if err != nil {
 		log.Error().Err(err).Msg(err.Error())
 		return userSessionResponse, errors.New("unable to find the user session")
 	}
 
-	for res.Next() {
-		var sessionId, userId, ip string
-		var created_at time.Time
-		var updated_at sql.NullTime
+	userSessionResponse.Ip = ip
+	userSessionResponse.Created_at = created_at
+	userSessionResponse.Is_current = true
 
-		var uat time.Time
+	if !updated_at.Valid {
+		userSessionResponse.Updated_at = tmpUat
+	} else {
+		var tmp time.Time
+		err := us.db.QueryRow(`SELECT updated_at from SESSION where id = $1`, sessionId).Scan(&tmp)
+		if err != nil {
+			log.Error().Err(err).Msg(err.Error())
+			return userSessionResponse, errors.New("unable to find the user session")
+		}
+		userSessionResponse.Updated_at = tmp
+	}
 
-		err := res.Scan(&sessionId, &userId, &ip, &created_at, &updated_at)
+	// Second sql query to get the client info
+	res2, err := us.db.Query(psqlStatement2, uid)
+	if err != nil {
+		log.Error().Err(err).Msg(err.Error())
+		return userSessionResponse, errors.New("unable to find the user session")
+	}
+
+	for res2.Next() {
+		var sessionId, device string
+		err := res2.Scan(&sessionId, &device)
 		if err != nil {
 			log.Error().Err(err).Msg(err.Error())
 			return userSessionResponse, errors.New("unable to get the user session")
 		}
 
-		if !updated_at.Valid {
-			userSessionResponse.Updated_at = uat
-
-		} else {
-			var tmp time.Time
-			err := us.db.QueryRow(`SELECT updated_at from SESSION where userid = $1`).Scan(&tmp)
-			if err != nil {
-				log.Error().Err(err).Msg(err.Error())
-				return userSessionResponse, errors.New("unable to get the user session")
-			}
-
-			userSessionResponse.Updated_at = tmp
-		}
+		userInfo.Name = device
 		userInfo.SessionId = sessionId
-
 		userSessionResponse.Client = append(userSessionResponse.Client, userInfo)
-		userSessionResponse.Ip = ip
-		userSessionResponse.Created_at = created_at
-
 	}
 
 	return userSessionResponse, nil
+}
+
+func (us *UserStore) UpdateUserSession(ctx context.Context, sessionId string) error {
+	var tx *sql.Tx
+	tx, err := us.db.Begin()
+
+	if err != nil {
+		log.Error().Err(err).Msg("failed to begin transaction")
+		return errors.New("failed to update session")
+	}
+
+	defer tx.Rollback()
+	defer func() {
+		if rollBackErr := tx.Rollback(); rollBackErr == nil {
+			log.Error().Err(err).Msg("rolling back changes")
+		}
+	}()
+
+	var updateSession *sql.Stmt
+	updateSession, err = tx.Prepare(`UPDATE session Set Updated_at = $2 Where id = $1`)
+	if err != nil {
+		log.Error().Err(err).Msg("error preparing statement")
+		return errors.New("failed to update session")
+	}
+	defer updateSession.Close()
+
+	result, err := updateSession.Exec(sessionId, time.Now())
+	rowsAff, _ := result.RowsAffected()
+
+	if err != nil || rowsAff != 1 {
+		log.Error().Err(err).Msg("error updeting user session")
+		return errors.New("failed to update session")
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		log.Error().Err(err).Msg("error committing changes")
+		return errors.New("failed to update session")
+	}
+
+	return nil
+}
+
+func (us *UserStore) DeleteCurrentSession(ctx context.Context, sessionId string) error {
+	var tx *sql.Tx
+	tx, err := us.db.Begin()
+
+	if err != nil {
+		log.Error().Err(err).Msg("failed to begin transaction")
+		return errors.New("failed to delete current session")
+	}
+
+	defer tx.Rollback()
+	defer func() {
+		if rollBackErr := tx.Rollback(); rollBackErr == nil {
+			log.Error().Err(err).Msg("rolling back changes")
+		}
+	}()
+
+	var deleteCurrentSession *sql.Stmt
+	deleteCurrentSession, err = tx.Prepare(`DELETE from Session Where id = $1`)
+	if err != nil {
+		log.Error().Err(err).Msg("error preparing statement")
+		return errors.New("failed to delete current session")
+	}
+	defer deleteCurrentSession.Close()
+
+	result, err := deleteCurrentSession.Exec(sessionId)
+	rowsAff, _ := result.RowsAffected()
+
+	if err != nil || rowsAff != 1 {
+		log.Error().Err(err).Msg("error deleting user session")
+		return errors.New("failed to delete current session")
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		log.Error().Err(err).Msg("error committing changes")
+		return errors.New("failed to delete current session")
+	}
+
+	return nil
+}
+
+func (us *UserStore) GetCurrentSessionDetail(ctx context.Context, sId string) (*store.UserSession, error) {
+	psqlStatement := `SELECT * FROM SESSION WHERE ID = $1`
+	var sessionId, userId, ip, device string
+	var created_at time.Time
+	var updated_at sql.NullTime
+	var userSessionResponse store.UserSession
+	var userInfo store.UserInfo
+
+	res := us.db.QueryRow(psqlStatement, sId)
+
+	err := res.Scan(&sessionId, &userId, &ip, &created_at, &updated_at, &device)
+	if err != nil {
+		log.Error().Err(err).Msg(err.Error())
+		return nil, errors.New("unable to find the user session")
+	}
+
+	userSessionResponse.Is_current = true
+	userSessionResponse.Ip = ip
+	userSessionResponse.Created_at = created_at
+
+	userInfo.Name = device
+	userInfo.SessionId = sessionId
+	userInfo.UserId = userId
+
+	var uTmp time.Time
+
+	if !updated_at.Valid {
+		userSessionResponse.Updated_at = uTmp
+	} else {
+		var tmp time.Time
+		err := us.db.QueryRow(`SELECT updated_at FROM SESSION WHERE ID = $1`, sId).Scan(&tmp)
+		if err != nil {
+			log.Error().Err(err).Msg(err.Error())
+			return nil, errors.New("unable to find the user session")
+		}
+		userSessionResponse.Updated_at = tmp
+	}
+
+	userSessionResponse.Client = append(userSessionResponse.Client, userInfo)
+
+	return &userSessionResponse, nil
+}
+
+func (us *UserStore) DeleteOtherSession(ctx context.Context, uid string, sid string) error {
+	currentSession, err := us.GetCurrentSessionDetail(ctx, sid)
+	if err != nil {
+		log.Error().Err(err).Msg(err.Error())
+		return errors.New("unable to find the user session")
+	}
+
+	var tx *sql.Tx
+	tx, err = us.db.Begin()
+
+	if err != nil {
+		log.Error().Err(err).Msg("failed to begin transaction")
+		return errors.New("failed to delete other session")
+	}
+
+	defer tx.Rollback()
+	defer func() {
+		if rollBackErr := tx.Rollback(); rollBackErr == nil {
+			log.Error().Err(err).Msg("rolling back changes")
+		}
+	}()
+
+	var deleteOtherSession *sql.Stmt
+	deleteOtherSession, err = tx.Prepare(`DELETE from Session Where userid = $1`)
+	if err != nil {
+		log.Error().Err(err).Msg("error preparing statement")
+		return errors.New("failed to delete other session")
+	}
+	defer deleteOtherSession.Close()
+
+	result, err := deleteOtherSession.Exec(uid)
+	rowsAff, _ := result.RowsAffected()
+
+	if err != nil || rowsAff < 1 {
+		log.Error().Err(err).Msg("error deleting user session")
+		return errors.New("failed to delete other session")
+	}
+
+	var insertCurrentSession *sql.Stmt
+	insertCurrentSession, err = tx.Prepare(`INSERT INTO SESSION 
+											(id, userid, ip_address, created_at, updated_at, device) 
+											VALUES ($1, $2, $3, $4, $5, $6)`)
+
+	if err != nil {
+		log.Error().Err(err).Msg("error preparing statement")
+		return errors.New("failed to delete other session")
+	}
+	defer insertCurrentSession.Close()
+
+	result, err = insertCurrentSession.
+		Exec(currentSession.Client[0].SessionId,
+			currentSession.Client[0].UserId,
+			currentSession.Ip,
+			currentSession.Created_at,
+			currentSession.Updated_at,
+			currentSession.Client[0].Name)
+
+	rowsAff, _ = result.RowsAffected()
+
+	if err != nil || rowsAff != 1 {
+		log.Error().Err(err).Msg("error deleting user session")
+		return errors.New("failed to delete other session")
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		log.Error().Err(err).Msg("error committing changes")
+		return errors.New("failed to delete other session")
+	}
+
+	return nil
+}
+
+func (us *UserStore) GetSessionsId(ctx context.Context, uid string) ([]string, error) {
+	var listOfSessionId []string
+	psqlStatement := `SELECT id FROM SESSION WHERE userid = $1`
+
+	res, err := us.db.Query(psqlStatement, uid)
+	if err != nil {
+		log.Error().Err(err).Msg(err.Error())
+		return nil, errors.New("unable to find session id")
+	}
+
+	for res.Next() {
+		var sid string
+		err := res.Scan(&sid)
+		if err != nil {
+			log.Error().Err(err).Msg(err.Error())
+			return nil, errors.New("unable to find session id")
+		}
+
+		listOfSessionId = append(listOfSessionId, sid)
+	}
+
+	return listOfSessionId, nil
+
 }

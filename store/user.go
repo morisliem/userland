@@ -19,7 +19,8 @@ type User struct {
 }
 
 type UserInfo struct {
-	SessionId string `json:"id"`
+	UserId    string `json:"userId"`
+	SessionId string `json:"sessionId"`
 	Name      string `json:"name"`
 }
 
@@ -40,7 +41,7 @@ type UserStore interface {
 	GetUserCode(ctx context.Context, u User) (int, error)
 	GetPassword(ctx context.Context, uid string) (string, error)
 	GetPasswords(ctx context.Context, uid string) ([]string, error)
-	GetUserState(ctx context.Context, u User) (int, error)
+	EmailActive(ctx context.Context, u User) (int, error)
 	GetUserDetail(ctx context.Context, uid string) (User, error)
 	SetUserPicture(ctx context.Context, uid string, pict string) error
 	DeleteUserPicture(ctx context.Context, uid string) error
@@ -49,6 +50,10 @@ type UserStore interface {
 	UpdateUserEmail(ctx context.Context, u User, uid string) error
 	DeleteAccount(ctx context.Context, uid string) error
 	EmailExist(ctx context.Context, u User) error
-	SetUserSession(ctx context.Context, t TokenDetails, uid string, ip string) error
-	GetUserSession(ctx context.Context, uid string) (UserSession, error)
+	SetUserSession(ctx context.Context, t TokenDetails, uid string, ip string, device string) error
+	GetUserSession(ctx context.Context, uid string, sessionId string) (UserSession, error)
+	UpdateUserSession(ctx context.Context, sessionId string) error
+	DeleteCurrentSession(ctx context.Context, sessionId string) error
+	DeleteOtherSession(ctx context.Context, uid string, sessionId string) error
+	GetSessionsId(ctx context.Context, uid string) ([]string, error)
 }

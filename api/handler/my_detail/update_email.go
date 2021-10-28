@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"userland/api/helper"
+	"userland/api/jwt"
 	"userland/api/response"
 	"userland/api/validator"
 	"userland/store"
@@ -19,6 +20,14 @@ func UpdateUserEmail(userStore store.UserStore, tokenStore store.TokenStore) htt
 		var request UpdateEmailRequest
 
 		userId, err := helper.AuthenticateUserAccessToken(r, tokenStore)
+		if err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnauthorized)
+			json.NewEncoder(w).Encode(response.Unautorized_request(err.Error()))
+			return
+		}
+
+		atJti, _, err := jwt.GetAtJtinRtJti(r)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusUnauthorized)
@@ -62,6 +71,22 @@ func UpdateUserEmail(userStore store.UserStore, tokenStore store.TokenStore) htt
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
 			json.NewEncoder(w).Encode(response.Response(err.Error()))
+			return
+		}
+
+		// Deleting the session to force user to validated their email before
+		// have access to the server
+		err = userStore.DeleteCurrentSession(r.Context(), atJti)
+		if err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		deleted, err := jwt.DeleteATAuth(atJti, tokenStore)
+		if err != nil || deleted == 0 {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 

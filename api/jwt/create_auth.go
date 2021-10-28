@@ -1,6 +1,7 @@
 package jwt
 
 import (
+	"errors"
 	"userland/store"
 )
 
@@ -27,7 +28,7 @@ func CreateRTAuth(userId string, td store.TokenDetails, ts store.TokenStore) err
 func FetchATAuth(auth *store.AccessDetail, ts store.TokenStore) (string, error) {
 	userId, err := ts.GetAtUserId(auth)
 	if err != nil {
-		return "", err
+		return "", errors.New("token is expired")
 	}
 	return userId, nil
 }
@@ -35,7 +36,7 @@ func FetchATAuth(auth *store.AccessDetail, ts store.TokenStore) (string, error) 
 func FetchRTAuth(auth *store.RefreshDetail, ts store.TokenStore) (string, error) {
 	userId, err := ts.GetRtUserId(auth)
 	if err != nil {
-		return "", err
+		return "", errors.New("token is expired")
 	}
 	return userId, nil
 }

@@ -2,8 +2,17 @@ package jwt
 
 import "userland/store"
 
-func DeleteAuth(userId string, ts store.TokenStore) (int64, error) {
-	del, err := ts.DeleteUserId(userId)
+func DeleteATAuth(jwtId string, ts store.TokenStore) (int64, error) {
+	del, err := ts.DeleteJti(jwtId)
+	if err != nil {
+		return 0, err
+	}
+
+	return del, nil
+}
+
+func DeleteRTAuth(jwtId string, ts store.TokenStore) (int64, error) {
+	del, err := ts.DeleteJti(jwtId)
 	if err != nil {
 		return 0, err
 	}

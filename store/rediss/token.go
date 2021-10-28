@@ -2,6 +2,7 @@ package rediss
 
 import (
 	"errors"
+	"os"
 	"strconv"
 	"time"
 	"userland/store"
@@ -20,8 +21,6 @@ func NewTokenStore(db *redis.Client) store.TokenStore {
 }
 
 func (ts *TokenStore) StoreAccess(userId string, td store.TokenDetails) error {
-	// err := ts.db.Set(td.AccessUuid, userId, t.Sub(time.Now())).Err()
-	// fmt.Println("access", td.AccessUuid)
 	err := ts.db.Set(td.AccessUuid, userId, time.Until(time.Unix(td.AtExpires, 0))).Err()
 	if err != nil {
 		return err
@@ -31,7 +30,6 @@ func (ts *TokenStore) StoreAccess(userId string, td store.TokenDetails) error {
 }
 
 func (ts *TokenStore) StoreRefresh(userId string, td store.TokenDetails) error {
-	// fmt.Println("refresh", td.RefreshUuid)
 	err := ts.db.Set(td.RefreshUuid, userId, time.Until(time.Unix(td.RtExpires, 0))).Err()
 	if err != nil {
 		return err
@@ -55,7 +53,7 @@ func (ts *TokenStore) GetRtUserId(td *store.RefreshDetail) (string, error) {
 	return userId, nil
 }
 
-func (ts *TokenStore) DeleteUserId(s string) (int64, error) {
+func (ts *TokenStore) DeleteJti(s string) (int64, error) {
 	deleted, err := ts.db.Del(s).Result()
 	if err != nil {
 		return 0, err
@@ -64,8 +62,8 @@ func (ts *TokenStore) DeleteUserId(s string) (int64, error) {
 }
 
 func (ts *TokenStore) SetEmailVerificationCode(email string, s int) error {
-
-	err := ts.db.Set(email, s, time.Second*60).Err()
+	duration, _ := strconv.Atoi(os.Getenv("EMAIL_CODE_DURATION"))
+	err := ts.db.Set(email, s, time.Second*time.Duration(duration)).Err()
 	if err != nil {
 		return err
 	}
@@ -85,7 +83,3 @@ func (ts *TokenStore) GetEmailVarificationCode(email string) (int, error) {
 	}
 	return code, nil
 }
-
-// func (ts *TokenStore) GetToken(ctx context.Context) error {
-// 	return nil
-// }

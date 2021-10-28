@@ -17,7 +17,7 @@ func Logout(tokenStore store.TokenStore) http.HandlerFunc {
 			return
 		}
 
-		deleted, err := jwt.DeleteAuth(au.AccessUuid, tokenStore)
+		deleted, err := jwt.DeleteATAuth(au.AccessUuid, tokenStore)
 		if err != nil || deleted == 0 {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusUnauthorized)

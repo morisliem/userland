@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"time"
 	"userland/api/helper"
 	"userland/api/jwt"
 	"userland/api/response"
@@ -14,6 +15,12 @@ import (
 type LoginRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
+}
+
+type GetATResponse struct {
+	Value      string    `json:"value"`
+	Type       string    `json:"type"`
+	Expired_at time.Time `json:"expired_at"`
 }
 
 func Login(userStore store.UserStore, tokenStore store.TokenStore) http.HandlerFunc {
@@ -35,7 +42,7 @@ func Login(userStore store.UserStore, tokenStore store.TokenStore) http.HandlerF
 			Password: request.Password,
 		}
 
-		state, err := userStore.GetUserState(ctx, newLogin)
+		is_active, err := userStore.EmailActive(ctx, newLogin)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadRequest)
@@ -43,12 +50,10 @@ func Login(userStore store.UserStore, tokenStore store.TokenStore) http.HandlerF
 			return
 		}
 
-		if state != 1 {
+		if is_active != 1 {
 			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusUnprocessableEntity)
-			tmp := map[string]string{}
-			tmp["email"] = "email still inactive"
-			json.NewEncoder(w).Encode(response.UnproccesableEntity(tmp))
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(response.Bad_request("email still inactive"))
 			return
 		}
 
@@ -60,7 +65,7 @@ func Login(userStore store.UserStore, tokenStore store.TokenStore) http.HandlerF
 			return
 		}
 
-		ts, err := jwt.GenerateAccessToken(userId)
+		ts, err := jwt.GenerateAccessToken(userId, "", "")
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadRequest)
@@ -84,23 +89,25 @@ func Login(userStore store.UserStore, tokenStore store.TokenStore) http.HandlerF
 			return
 		}
 
+		device := r.Header["X-Api-Clientid"]
+
 		// Add session here
-		err = userStore.SetUserSession(ctx, ts, userId, ip)
+		err = userStore.SetUserSession(ctx, ts, userId, ip, device[0])
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(response.Response(err.Error()))
 			return
 		}
 
-		http.SetCookie(w, &http.Cookie{
-			Name:  "access_token",
-			Value: ts.AccessToken,
-		})
+		at := &GetATResponse{
+			Value:      ts.AccessToken,
+			Type:       "jwt",
+			Expired_at: time.Unix(ts.AtExpires, 0),
+		}
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(response.Success())
+		json.NewEncoder(w).Encode(at)
 	}
 }
 

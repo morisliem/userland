@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 	"userland/api/helper"
+	"userland/api/jwt"
 	"userland/api/response"
 	"userland/store"
 )
@@ -24,6 +25,8 @@ type GetSessionResponse struct {
 
 func GetUserSession(userStore store.UserStore, tokenStore store.TokenStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		var clientInfo ClientInfo
+		var SessionResponse GetSessionResponse
 		userId, err := helper.AuthenticateUserAccessToken(r, tokenStore)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
@@ -32,7 +35,15 @@ func GetUserSession(userStore store.UserStore, tokenStore store.TokenStore) http
 			return
 		}
 
-		res, err := userStore.GetUserSession(r.Context(), userId)
+		atJti, _, err := jwt.GetAtJtinRtJti(r)
+		if err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnauthorized)
+			json.NewEncoder(w).Encode(response.Unautorized_request(err.Error()))
+			return
+		}
+
+		res, err := userStore.GetUserSession(r.Context(), userId, atJti)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
@@ -40,8 +51,19 @@ func GetUserSession(userStore store.UserStore, tokenStore store.TokenStore) http
 			return
 		}
 
+		SessionResponse.Created_at = res.Created_at
+		SessionResponse.Ip = res.Ip
+		SessionResponse.Is_current = res.Is_current
+		SessionResponse.Updated_at = res.Updated_at
+
+		for _, v := range res.Client {
+			clientInfo.Name = v.Name
+			clientInfo.SessionId = v.SessionId
+			SessionResponse.Client = append(SessionResponse.Client, clientInfo)
+		}
+
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(res)
+		json.NewEncoder(w).Encode(SessionResponse)
 	}
 }

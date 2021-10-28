@@ -14,6 +14,8 @@ type SetPictureRequest struct {
 	Picture string `json:"picture"`
 }
 
+// Try to add bigger picture than 10mb
+
 func SetUserPicture(userStore store.UserStore, tokenStore store.TokenStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userId, err := helper.AuthenticateUserAccessToken(r, tokenStore)

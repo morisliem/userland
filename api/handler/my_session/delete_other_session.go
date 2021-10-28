@@ -3,22 +3,13 @@ package mysession
 import (
 	"encoding/json"
 	"net/http"
-	"time"
 	"userland/api/helper"
 	"userland/api/jwt"
 	"userland/api/response"
 	"userland/store"
 )
 
-type GetRTResponse struct {
-	Value      string    `json:"value"`
-	Type       string    `json:"type"`
-	Expired_at time.Time `json:"expired_at"`
-}
-
-// Missing update the updated_time
-
-func GetRefreshToken(userStore store.UserStore, tokenStore store.TokenStore) http.HandlerFunc {
+func DeleteOtherSession(userStore store.UserStore, tokenStore store.TokenStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userId, err := helper.AuthenticateUserAccessToken(r, tokenStore)
 		if err != nil {
@@ -36,34 +27,34 @@ func GetRefreshToken(userStore store.UserStore, tokenStore store.TokenStore) htt
 			return
 		}
 
-		res, err := jwt.GenerateRefreshToken(userId, atJti)
+		listOfSid, err := userStore.GetSessionsId(r.Context(), userId)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(response.Response(err.Error()))
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
-		saveErr := jwt.CreateRTAuth(userId, res, tokenStore)
+		err = userStore.DeleteOtherSession(r.Context(), userId, atJti)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(response.Response(saveErr.Error()))
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
-		newToken := &GetRTResponse{
-			Value:      res.RefreshToken,
-			Expired_at: time.Unix(res.RtExpires, 0),
-			Type:       "jwt",
-		}
-
-		response := map[string]GetRTResponse{
-			"refresh_token": *newToken,
+		for _, v := range listOfSid {
+			if v != atJti {
+				deleted, err := jwt.DeleteATAuth(v, tokenStore)
+				if err != nil || deleted == 0 {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusUnauthorized)
+					return
+				}
+			}
 		}
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(response)
+		json.NewEncoder(w).Encode(response.Success())
+
 	}
 }
