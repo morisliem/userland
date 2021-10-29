@@ -6,7 +6,6 @@ import (
 )
 
 func CreateATAuth(userId string, td store.TokenDetails, ts store.TokenStore) error {
-
 	errAccess := ts.StoreAccess(userId, td)
 	if errAccess != nil {
 		return errAccess
@@ -16,7 +15,6 @@ func CreateATAuth(userId string, td store.TokenDetails, ts store.TokenStore) err
 }
 
 func CreateRTAuth(userId string, td store.TokenDetails, ts store.TokenStore) error {
-
 	errRefresh := ts.StoreRefresh(userId, td)
 	if errRefresh != nil {
 		return errRefresh

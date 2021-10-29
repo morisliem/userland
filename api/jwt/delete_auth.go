@@ -2,8 +2,8 @@ package jwt
 
 import "userland/store"
 
-func DeleteATAuth(jwtId string, ts store.TokenStore) (int64, error) {
-	del, err := ts.DeleteJti(jwtId)
+func DeleteATAuth(atJti string, ts store.TokenStore) (int64, error) {
+	del, err := ts.DeleteAtJti(atJti)
 	if err != nil {
 		return 0, err
 	}
@@ -11,8 +11,8 @@ func DeleteATAuth(jwtId string, ts store.TokenStore) (int64, error) {
 	return del, nil
 }
 
-func DeleteRTAuth(jwtId string, ts store.TokenStore) (int64, error) {
-	del, err := ts.DeleteJti(jwtId)
+func DeleteRTAuth(atJti string, ts store.TokenStore) (int64, error) {
+	del, err := ts.DeleteRtJti(atJti)
 	if err != nil {
 		return 0, err
 	}

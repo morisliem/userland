@@ -16,8 +16,6 @@ type GetRTResponse struct {
 	Expired_at time.Time `json:"expired_at"`
 }
 
-// Missing update the updated_time
-
 func GetRefreshToken(userStore store.UserStore, tokenStore store.TokenStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userId, err := helper.AuthenticateUserAccessToken(r, tokenStore)
@@ -28,7 +26,7 @@ func GetRefreshToken(userStore store.UserStore, tokenStore store.TokenStore) htt
 			return
 		}
 
-		atJti, _, err := jwt.GetAtJtinRtJti(r)
+		atJti, rtJti, err := jwt.GetAtJtinRtJti(r)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusUnauthorized)
@@ -36,7 +34,7 @@ func GetRefreshToken(userStore store.UserStore, tokenStore store.TokenStore) htt
 			return
 		}
 
-		res, err := jwt.GenerateRefreshToken(userId, atJti)
+		res, err := jwt.GenerateRefreshToken(userId, atJti, rtJti)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadRequest)

@@ -26,8 +26,8 @@ type TokenStore interface {
 	StoreRefresh(userId string, td TokenDetails) error
 	GetAtUserId(td *AccessDetail) (string, error)
 	GetRtUserId(td *RefreshDetail) (string, error)
-	DeleteJti(jwtId string) (int64, error)
 	SetEmailVerificationCode(email string, code int) error
 	GetEmailVarificationCode(email string) (int, error)
-	// GetToken(ctx context.Context) error
+	DeleteAtJti(uid string) (int64, error)
+	DeleteRtJti(uid string) (int64, error)
 }

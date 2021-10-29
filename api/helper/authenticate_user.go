@@ -12,6 +12,7 @@ func AuthenticateUserAccessToken(r *http.Request, tokenStore store.TokenStore) (
 		return "", err
 	}
 
+	//IsAtStillActive
 	userId, err := jwt.FetchATAuth(tokenAuth, tokenStore)
 	if err != nil {
 		return "", err
@@ -26,6 +27,7 @@ func AuthenticateUserRefreshToken(r *http.Request, tokenStore store.TokenStore) 
 		return "", err
 	}
 
+	//IsRtStillActive
 	userId, err := jwt.FetchRTAuth(tokenAuth, tokenStore)
 	if err != nil {
 		return "", err

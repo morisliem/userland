@@ -18,6 +18,9 @@ func GenerateAccessToken(userId string, atJti string, rtJti string) (store.Token
 	accessUuid, _ := uuid.NewV4()
 	td.AccessUuid = fmt.Sprintf("%v", accessUuid)
 
+	refresh_jti, _ := uuid.NewV4()
+	td.RefreshUuid = fmt.Sprintf("%v", refresh_jti)
+
 	var err error
 
 	atClaims := jwt.MapClaims{}
@@ -44,12 +47,11 @@ func GenerateAccessToken(userId string, atJti string, rtJti string) (store.Token
 	return td, nil
 }
 
-func GenerateRefreshToken(userId string, atJti string) (store.TokenDetails, error) {
+func GenerateRefreshToken(userId string, atJti string, rtJti string) (store.TokenDetails, error) {
 	td := store.TokenDetails{}
 	rtDuration, _ := strconv.Atoi(os.Getenv("REFRESH_TOKEN_DURATION"))
 	td.RtExpires = time.Now().Add(time.Minute * time.Duration(rtDuration)).Unix()
-	refreshUuid, _ := uuid.NewV4()
-	td.RefreshUuid = fmt.Sprintf("%v", refreshUuid)
+	td.RefreshUuid = rtJti
 	td.AccessUuid = atJti
 
 	var err error

@@ -950,3 +950,22 @@ func (us *UserStore) GetSessionsId(ctx context.Context, uid string) ([]string, e
 	return listOfSessionId, nil
 
 }
+
+func (us *UserStore) IsSessionUpdated(ctx context.Context, sid string) (bool, error) {
+	psqlStatement := `SELECT updated_at from SESSION where id = $1`
+	var updated_at sql.NullTime
+
+	res := us.db.QueryRow(psqlStatement, sid)
+
+	err := res.Scan(&updated_at)
+	if err != nil {
+		log.Error().Err(err).Msg(err.Error())
+		return false, errors.New("unable to find the session")
+	}
+
+	if !updated_at.Valid {
+		return false, nil
+	}
+
+	return true, nil
+}

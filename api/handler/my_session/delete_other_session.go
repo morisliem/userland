@@ -2,6 +2,7 @@ package mysession
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"userland/api/helper"
 	"userland/api/jwt"
@@ -37,13 +38,8 @@ func DeleteOtherSession(userStore store.UserStore, tokenStore store.TokenStore) 
 			return
 		}
 
-		err = userStore.DeleteOtherSession(r.Context(), userId, atJti)
-		if err != nil {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-
+		fmt.Println("atjti", atJti)
+		fmt.Println("list of sid", listOfSid)
 		// removing all the jwt access token in the redis except the current jwt id
 		for _, v := range listOfSid {
 			if v != atJti {
@@ -51,9 +47,37 @@ func DeleteOtherSession(userStore store.UserStore, tokenStore store.TokenStore) 
 				if err != nil || deleted == 0 {
 					w.Header().Set("Content-Type", "application/json")
 					w.WriteHeader(http.StatusInternalServerError)
+					fmt.Println("1")
 					return
 				}
+
+				// checking if the session has refresh token id
+				isUpdate, err := userStore.IsSessionUpdated(r.Context(), atJti)
+				if err != nil {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusInternalServerError)
+					fmt.Println("2")
+					return
+				}
+
+				// if it has then delete the refresh token id
+				if isUpdate {
+					deleted, err = jwt.DeleteRTAuth(v, tokenStore)
+					if err != nil || deleted == 0 {
+						w.Header().Set("Content-Type", "application/json")
+						w.WriteHeader(http.StatusInternalServerError)
+						fmt.Println("3")
+						return
+					}
+				}
 			}
+		}
+
+		err = userStore.DeleteOtherSession(r.Context(), userId, atJti)
+		if err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
 		}
 
 		w.Header().Set("Content-Type", "application/json")
