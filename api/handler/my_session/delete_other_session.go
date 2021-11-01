@@ -38,8 +38,6 @@ func DeleteOtherSession(userStore store.UserStore, tokenStore store.TokenStore) 
 			return
 		}
 
-		fmt.Println("atjti", atJti)
-		fmt.Println("list of sid", listOfSid)
 		// removing all the jwt access token in the redis except the current jwt id
 		for _, v := range listOfSid {
 			if v != atJti {
@@ -52,21 +50,18 @@ func DeleteOtherSession(userStore store.UserStore, tokenStore store.TokenStore) 
 				}
 
 				// checking if the session has refresh token id
-				isUpdate, err := userStore.IsSessionUpdated(r.Context(), atJti)
+				itHas, err := tokenStore.HasRefreshToken(v)
 				if err != nil {
 					w.Header().Set("Content-Type", "application/json")
 					w.WriteHeader(http.StatusInternalServerError)
-					fmt.Println("2")
 					return
 				}
 
-				// if it has then delete the refresh token id
-				if isUpdate {
+				if itHas {
 					deleted, err = jwt.DeleteRTAuth(v, tokenStore)
 					if err != nil || deleted == 0 {
 						w.Header().Set("Content-Type", "application/json")
 						w.WriteHeader(http.StatusInternalServerError)
-						fmt.Println("3")
 						return
 					}
 				}

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 	"userland/api/helper"
 	"userland/api/jwt"
@@ -15,6 +16,7 @@ import (
 type LoginRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
+	clientid string
 }
 
 type GetATResponse struct {
@@ -28,6 +30,7 @@ func Login(userStore store.UserStore, tokenStore store.TokenStore) http.HandlerF
 		var request LoginRequest
 		ctx := r.Context()
 		json.NewDecoder(r.Body).Decode(&request)
+		request.clientid = r.Header.Get("X-Api-Clientid")
 
 		valErr, err := request.ValidateRequest()
 		if err != nil {
@@ -51,7 +54,7 @@ func Login(userStore store.UserStore, tokenStore store.TokenStore) http.HandlerF
 		}
 
 		// To check if the user has activated their email or not
-		if is_active != 1 {
+		if !is_active {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(response.Bad_request("email still inactive"))
@@ -91,10 +94,10 @@ func Login(userStore store.UserStore, tokenStore store.TokenStore) http.HandlerF
 			return
 		}
 
-		device := r.Header["X-Api-Clientid"]
+		// device := r.Header["X-Api-Clientid"]
 
 		// Add session here
-		err = userStore.SetUserSession(ctx, ts, userId, ip, device[0])
+		err = userStore.SetUserSession(ctx, ts, userId, ip, request.clientid)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
@@ -115,6 +118,11 @@ func Login(userStore store.UserStore, tokenStore store.TokenStore) http.HandlerF
 
 func (lr *LoginRequest) ValidateRequest() (map[string]string, error) {
 	res := map[string]string{}
+
+	if len(strings.TrimSpace(lr.clientid)) == 0 {
+		res["X-Api-ClientId"] = "required x-api-clientid"
+	}
+
 	emailErr := validator.ValidateEmail(lr.Email)
 	if emailErr != nil {
 		res["email"] = emailErr.Error()

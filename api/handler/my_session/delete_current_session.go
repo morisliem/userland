@@ -37,14 +37,14 @@ func DeleteCurrentSession(userStore store.UserStore, tokenStore store.TokenStore
 		}
 
 		// removing the current refresh token in redis
-		isUpdate, err := userStore.IsSessionUpdated(r.Context(), atJti)
+		itHas, err := tokenStore.HasRefreshToken(atJti)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
-		if isUpdate {
+		if itHas {
 			deleted, err = jwt.DeleteRTAuth(atJti, tokenStore)
 			if err != nil || deleted == 0 {
 				w.Header().Set("Content-Type", "application/json")

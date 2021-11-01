@@ -8,7 +8,6 @@ import (
 	"userland/api/helper"
 	"userland/store"
 
-	"github.com/gofrs/uuid"
 	"github.com/rs/zerolog/log"
 )
 
@@ -85,7 +84,7 @@ func (us *UserStore) UpdatePassword(ctx context.Context, uid string, u store.Use
 func (us *UserStore) GetUserId(ctx context.Context, u store.User) (string, error) {
 	psqlStatement := `SELECT id, password FROM PERSON WHERE EMAIL = $1`
 
-	res := us.db.QueryRow(psqlStatement, u.Email)
+	res := us.db.QueryRowContext(ctx, psqlStatement, u.Email)
 	var id string
 	var password string
 
@@ -105,7 +104,7 @@ func (us *UserStore) GetUserId(ctx context.Context, u store.User) (string, error
 func (us *UserStore) GetUserid(ctx context.Context, email string) (string, error) {
 	psqlStatement := `SELECT id FROM PERSON WHERE EMAIL = $1`
 
-	res := us.db.QueryRow(psqlStatement, email)
+	res := us.db.QueryRowContext(ctx, psqlStatement, email)
 	var userId string
 
 	err := res.Scan(&userId)
@@ -118,7 +117,7 @@ func (us *UserStore) GetUserid(ctx context.Context, email string) (string, error
 func (us *UserStore) GetUserCode(ctx context.Context, u store.User) (int, error) {
 	psqlStatement := `SELECT ver_code FROM email_ver WHERE EMAIL = $1`
 
-	res := us.db.QueryRow(psqlStatement, u.Email)
+	res := us.db.QueryRowContext(ctx, psqlStatement, u.Email)
 	var code int
 
 	err := res.Scan(&code)
@@ -130,17 +129,17 @@ func (us *UserStore) GetUserCode(ctx context.Context, u store.User) (int, error)
 	return code, nil
 }
 
-func (us *UserStore) EmailActive(ctx context.Context, u store.User) (int, error) {
+func (us *UserStore) EmailActive(ctx context.Context, u store.User) (bool, error) {
 	psqlStatement := `SELECT is_active FROM Person WHERE Email = $1`
 
-	res := us.db.QueryRow(psqlStatement, u.Email)
-	var is_active int
+	res := us.db.QueryRowContext(ctx, psqlStatement, u.Email)
+	var is_active bool
 
 	err := res.Scan(&is_active)
 
 	if err != nil {
 		log.Error().Err(err).Msg(err.Error())
-		return -1, errors.New("unable to find the user")
+		return false, errors.New("unable to find the user")
 	}
 	return is_active, nil
 }
@@ -148,7 +147,7 @@ func (us *UserStore) EmailActive(ctx context.Context, u store.User) (int, error)
 func (us *UserStore) GetPassword(ctx context.Context, uid string) (string, error) {
 	psqlStatement := `SELECT password from person where id = $1`
 
-	res := us.db.QueryRow(psqlStatement, uid)
+	res := us.db.QueryRowContext(ctx, psqlStatement, uid)
 	var pwd string
 
 	err := res.Scan(&pwd)
@@ -162,11 +161,14 @@ func (us *UserStore) GetPassword(ctx context.Context, uid string) (string, error
 func (us *UserStore) GetPasswords(ctx context.Context, uid string) ([]string, error) {
 	psqlStatement := `SELECT password FROM user_password WHERE id = $1 order by created_at desc limit 3`
 
-	res, err := us.db.Query(psqlStatement, uid)
+	res, err := us.db.QueryContext(ctx, psqlStatement, uid)
 	if err != nil {
 		log.Error().Err(err).Msg(err.Error())
 		return nil, errors.New("unable to find user")
 	}
+
+	defer res.Close()
+
 	var pwd []string
 
 	for res.Next() {
@@ -182,11 +184,10 @@ func (us *UserStore) GetPasswords(ctx context.Context, uid string) ([]string, er
 	return pwd, nil
 }
 
-// Have to handle all various error from db
 func (us *UserStore) EmailExist(ctx context.Context, u store.User) error {
 	psqlStatement := `SELECT email FROM PERSON WHERE EMAIL = $1`
 
-	res := us.db.QueryRow(psqlStatement, u.Email)
+	res := us.db.QueryRowContext(ctx, psqlStatement, u.Email)
 	var email string
 
 	err := res.Scan(&email)
@@ -228,14 +229,8 @@ func (us *UserStore) RegisterUser(ctx context.Context, u store.User, rn int) err
 	}
 	defer inserUserStmt.Close()
 
-	userId, err := uuid.NewV4()
-	if err != nil {
-		log.Error().Err(err).Msg("failed to generate user id")
-		return errors.New("failed to register user")
-	}
-
 	var result sql.Result
-	result, err = inserUserStmt.Exec(u.Fullname, u.Email, u.Password, time.Now().UTC(), userId.String(), 0)
+	result, err = inserUserStmt.Exec(u.Fullname, u.Email, u.Password, time.Now().UTC(), u.Id, false)
 
 	rowsAff, _ := result.RowsAffected()
 
@@ -254,7 +249,7 @@ func (us *UserStore) RegisterUser(ctx context.Context, u store.User, rn int) err
 		return errors.New("failed to register user")
 	}
 	defer insertNewPassword.Close()
-	result, err = insertNewPassword.Exec(userId.String(), u.Password, time.Now())
+	result, err = insertNewPassword.Exec(u.Id, u.Password, time.Now())
 	rowsAff, _ = result.RowsAffected()
 
 	if err != nil || rowsAff != 1 {
@@ -286,7 +281,7 @@ func (us *UserStore) ValidateCode(ctx context.Context, u store.User) error {
 	}()
 
 	var updateUser *sql.Stmt
-	updateUser, err = tx.Prepare(`UPDATE PERSON SET is_active = 1 WHERE email = $1`)
+	updateUser, err = tx.Prepare(`UPDATE PERSON SET is_active = $3, email = $2 WHERE id = $1`)
 	if err != nil {
 		log.Error().Err(err).Msg("error preparing statement")
 		return errors.New("failed to update user state")
@@ -294,7 +289,7 @@ func (us *UserStore) ValidateCode(ctx context.Context, u store.User) error {
 	defer updateUser.Close()
 
 	var result sql.Result
-	result, err = updateUser.Exec(u.Email)
+	result, err = updateUser.Exec(u.Id, u.Email, true)
 
 	rowsAff, _ := result.RowsAffected()
 
@@ -311,16 +306,15 @@ func (us *UserStore) ValidateCode(ctx context.Context, u store.User) error {
 	return nil
 }
 
-// Have to handle all various error from db
 func (us *UserStore) GetUserDetail(ctx context.Context, uid string) (store.User, error) {
 	var response store.User
 	psqlstatement := `SELECT * FROM person WHERE id = $1`
 
-	res := us.db.QueryRow(psqlstatement, uid)
+	res := us.db.QueryRowContext(ctx, psqlstatement, uid)
 	var id, fullname, email, password string
 	var location, bio, picture, web sql.NullString
 	var created_at time.Time
-	var is_active int
+	var is_active bool
 
 	err := res.Scan(&id, &fullname, &email, &password, &location, &bio, &web, &picture, &created_at, &is_active)
 	if err != nil {
@@ -340,7 +334,7 @@ func (us *UserStore) GetUserDetail(ctx context.Context, uid string) (store.User,
 		response.Location = loc
 	} else {
 		var tmp string
-		err := us.db.QueryRow(`SELECT location from PERSON where id = $1`, id).Scan(&tmp)
+		err := us.db.QueryRowContext(ctx, `SELECT location from PERSON where id = $1`, id).Scan(&tmp)
 		if err != nil {
 			log.Error().Err(err).Msg(err.Error())
 			return response, errors.New("unable to find the user")
@@ -352,7 +346,7 @@ func (us *UserStore) GetUserDetail(ctx context.Context, uid string) (store.User,
 		response.Bio = bioo
 	} else {
 		var tmp string
-		err := us.db.QueryRow(`SELECT bio from PERSON where id = $1`, id).Scan(&tmp)
+		err := us.db.QueryRowContext(ctx, `SELECT bio from PERSON where id = $1`, id).Scan(&tmp)
 		if err != nil {
 			log.Error().Err(err).Msg(err.Error())
 			return response, errors.New("unable to find the user")
@@ -364,7 +358,7 @@ func (us *UserStore) GetUserDetail(ctx context.Context, uid string) (store.User,
 		response.Web = webs
 	} else {
 		var tmp string
-		err := us.db.QueryRow(`SELECT web from PERSON where id = $1`, id).Scan(&tmp)
+		err := us.db.QueryRowContext(ctx, `SELECT web from PERSON where id = $1`, id).Scan(&tmp)
 		if err != nil {
 			log.Error().Err(err).Msg(err.Error())
 			return response, errors.New("unable to find the user")
@@ -376,7 +370,7 @@ func (us *UserStore) GetUserDetail(ctx context.Context, uid string) (store.User,
 		response.Picture = pict
 	} else {
 		var tmp string
-		err := us.db.QueryRow(`SELECT picture from PERSON where id = $1`, id).Scan(&tmp)
+		err := us.db.QueryRowContext(ctx, `SELECT picture from PERSON where id = $1`, id).Scan(&tmp)
 		if err != nil {
 			log.Error().Err(err).Msg(err.Error())
 			return response, errors.New("unable to find the user")
@@ -438,7 +432,7 @@ func (us *UserStore) GetUserEmail(ctx context.Context, uid string) (store.User, 
 	var response store.User
 	psqlstatement := `SELECT email FROM person WHERE id = $1`
 
-	err := us.db.QueryRow(psqlstatement, uid).Scan(&email)
+	err := us.db.QueryRowContext(ctx, psqlstatement, uid).Scan(&email)
 	if err != nil {
 		log.Error().Err(err).Msg(err.Error())
 		return response, errors.New("unable to find the user")
@@ -447,51 +441,6 @@ func (us *UserStore) GetUserEmail(ctx context.Context, uid string) (store.User, 
 	response.Email = email
 
 	return response, nil
-}
-
-func (us *UserStore) UpdateUserEmail(ctx context.Context, u store.User, uid string) error {
-	var tx *sql.Tx
-	tx, err := us.db.Begin()
-
-	if err != nil {
-		log.Error().Err(err).Msg("failed to begin transaction")
-		return errors.New("failed to update user email")
-	}
-
-	defer tx.Rollback()
-	defer func() {
-		if rollBackErr := tx.Rollback(); rollBackErr == nil {
-			log.Error().Err(err).Msg("rolling back changes")
-		}
-	}()
-
-	if us.EmailExist(ctx, u) == nil {
-		return errors.New("email is used")
-	}
-
-	var updateEmail *sql.Stmt
-	updateEmail, err = tx.Prepare(`UPDATE person SET email = $2, is_active = 0 WHERE id = $1`)
-	if err != nil {
-		log.Error().Err(err).Msg("error preparing statement")
-		return errors.New("failed to update user email")
-	}
-	defer updateEmail.Close()
-
-	result, err := updateEmail.Exec(uid, u.Email)
-	rowsAff, _ := result.RowsAffected()
-
-	if err != nil || rowsAff != 1 {
-		log.Error().Err(err).Msg("error inserting email varification")
-		return errors.New("failed to update user email")
-	}
-
-	err = tx.Commit()
-	if err != nil {
-		log.Error().Err(err).Msg("error committing changes")
-		return errors.New("failed to update user email")
-	}
-
-	return nil
 }
 
 func (us *UserStore) DeleteAccount(ctx context.Context, uid string) error {
@@ -517,7 +466,7 @@ func (us *UserStore) DeleteAccount(ctx context.Context, uid string) error {
 	}
 	defer updateAccountState.Close()
 
-	result, err := updateAccountState.Exec(uid, 0)
+	result, err := updateAccountState.Exec(uid, false)
 	rowsAff, _ := result.RowsAffected()
 
 	if err != nil || rowsAff != 1 {
@@ -537,7 +486,7 @@ func (us *UserStore) DeleteAccount(ctx context.Context, uid string) error {
 func (us *UserStore) GetUserProfilePicture(ctx context.Context, uid string) (string, error) {
 	psqlStatement := `SELECT picture from PERSON WHERE id = $1`
 
-	res := us.db.QueryRow(psqlStatement, uid)
+	res := us.db.QueryRowContext(ctx, psqlStatement, uid)
 	var pictureName string
 	err := res.Scan(&pictureName)
 	if err != nil {
@@ -672,8 +621,8 @@ func (us *UserStore) SetUserSession(ctx context.Context, t store.TokenDetails, u
 }
 
 func (us *UserStore) GetUserSession(ctx context.Context, uid string, sessionId string) (store.UserSession, error) {
-	psqlStatement1 := `SELECT ip_address, created_at, updated_at FROM session WHERE id = $1`
-	psqlStatement2 := `SELECT id, device FROM session WHERE userid = $1`
+	psqlToGetSessionInfo := `SELECT ip_address, created_at, updated_at FROM session WHERE id = $1`
+	psqlToGetClientInfo := `SELECT id, device FROM session WHERE userid = $1`
 	var userSessionResponse store.UserSession
 	var userInfo store.UserInfo
 	var ip string
@@ -682,8 +631,8 @@ func (us *UserStore) GetUserSession(ctx context.Context, uid string, sessionId s
 	var tmpUat time.Time
 
 	// first sql query to get the user current session info
-	res1 := us.db.QueryRow(psqlStatement1, sessionId)
-	err := res1.Scan(&ip, &created_at, &updated_at)
+	sessionInfo := us.db.QueryRowContext(ctx, psqlToGetSessionInfo, sessionId)
+	err := sessionInfo.Scan(&ip, &created_at, &updated_at)
 	if err != nil {
 		log.Error().Err(err).Msg(err.Error())
 		return userSessionResponse, errors.New("unable to find the user session")
@@ -697,7 +646,7 @@ func (us *UserStore) GetUserSession(ctx context.Context, uid string, sessionId s
 		userSessionResponse.Updated_at = tmpUat
 	} else {
 		var tmp time.Time
-		err := us.db.QueryRow(`SELECT updated_at from SESSION where id = $1`, sessionId).Scan(&tmp)
+		err := us.db.QueryRowContext(ctx, `SELECT updated_at from SESSION where id = $1`, sessionId).Scan(&tmp)
 		if err != nil {
 			log.Error().Err(err).Msg(err.Error())
 			return userSessionResponse, errors.New("unable to find the user session")
@@ -706,15 +655,17 @@ func (us *UserStore) GetUserSession(ctx context.Context, uid string, sessionId s
 	}
 
 	// Second sql query to get the client info
-	res2, err := us.db.Query(psqlStatement2, uid)
+	clientInfo, err := us.db.QueryContext(ctx, psqlToGetClientInfo, uid)
 	if err != nil {
 		log.Error().Err(err).Msg(err.Error())
 		return userSessionResponse, errors.New("unable to find the user session")
 	}
 
-	for res2.Next() {
+	defer clientInfo.Close()
+
+	for clientInfo.Next() {
 		var sessionId, device string
-		err := res2.Scan(&sessionId, &device)
+		err := clientInfo.Scan(&sessionId, &device)
 		if err != nil {
 			log.Error().Err(err).Msg(err.Error())
 			return userSessionResponse, errors.New("unable to get the user session")
@@ -810,58 +761,9 @@ func (us *UserStore) DeleteCurrentSession(ctx context.Context, sessionId string)
 	return nil
 }
 
-func (us *UserStore) GetCurrentSessionDetail(ctx context.Context, sId string) (*store.UserSession, error) {
-	psqlStatement := `SELECT * FROM SESSION WHERE ID = $1`
-	var sessionId, userId, ip, device string
-	var created_at time.Time
-	var updated_at sql.NullTime
-	var userSessionResponse store.UserSession
-	var userInfo store.UserInfo
-
-	res := us.db.QueryRow(psqlStatement, sId)
-
-	err := res.Scan(&sessionId, &userId, &ip, &created_at, &updated_at, &device)
-	if err != nil {
-		log.Error().Err(err).Msg(err.Error())
-		return nil, errors.New("unable to find the user session")
-	}
-
-	userSessionResponse.Is_current = true
-	userSessionResponse.Ip = ip
-	userSessionResponse.Created_at = created_at
-
-	userInfo.Name = device
-	userInfo.SessionId = sessionId
-	userInfo.UserId = userId
-
-	var uTmp time.Time
-
-	if !updated_at.Valid {
-		userSessionResponse.Updated_at = uTmp
-	} else {
-		var tmp time.Time
-		err := us.db.QueryRow(`SELECT updated_at FROM SESSION WHERE ID = $1`, sId).Scan(&tmp)
-		if err != nil {
-			log.Error().Err(err).Msg(err.Error())
-			return nil, errors.New("unable to find the user session")
-		}
-		userSessionResponse.Updated_at = tmp
-	}
-
-	userSessionResponse.Client = append(userSessionResponse.Client, userInfo)
-
-	return &userSessionResponse, nil
-}
-
 func (us *UserStore) DeleteOtherSession(ctx context.Context, uid string, sid string) error {
-	currentSession, err := us.GetCurrentSessionDetail(ctx, sid)
-	if err != nil {
-		log.Error().Err(err).Msg(err.Error())
-		return errors.New("unable to find the user session")
-	}
-
 	var tx *sql.Tx
-	tx, err = us.db.Begin()
+	tx, err := us.db.Begin()
 
 	if err != nil {
 		log.Error().Err(err).Msg("failed to begin transaction")
@@ -876,43 +778,17 @@ func (us *UserStore) DeleteOtherSession(ctx context.Context, uid string, sid str
 	}()
 
 	var deleteOtherSession *sql.Stmt
-	deleteOtherSession, err = tx.Prepare(`DELETE from Session Where userid = $1`)
+	deleteOtherSession, err = tx.Prepare(`DELETE from Session Where userid = $1 AND id <> $2`)
 	if err != nil {
 		log.Error().Err(err).Msg("error preparing statement")
 		return errors.New("failed to delete other session")
 	}
 	defer deleteOtherSession.Close()
 
-	result, err := deleteOtherSession.Exec(uid)
+	result, err := deleteOtherSession.Exec(uid, sid)
 	rowsAff, _ := result.RowsAffected()
 
 	if err != nil || rowsAff < 1 {
-		log.Error().Err(err).Msg("error deleting user session")
-		return errors.New("failed to delete other session")
-	}
-
-	var insertCurrentSession *sql.Stmt
-	insertCurrentSession, err = tx.Prepare(`INSERT INTO SESSION 
-											(id, userid, ip_address, created_at, updated_at, device) 
-											VALUES ($1, $2, $3, $4, $5, $6)`)
-
-	if err != nil {
-		log.Error().Err(err).Msg("error preparing statement")
-		return errors.New("failed to delete other session")
-	}
-	defer insertCurrentSession.Close()
-
-	result, err = insertCurrentSession.
-		Exec(currentSession.Client[0].SessionId,
-			currentSession.Client[0].UserId,
-			currentSession.Ip,
-			currentSession.Created_at,
-			currentSession.Updated_at,
-			currentSession.Client[0].Name)
-
-	rowsAff, _ = result.RowsAffected()
-
-	if err != nil || rowsAff != 1 {
 		log.Error().Err(err).Msg("error deleting user session")
 		return errors.New("failed to delete other session")
 	}
@@ -930,11 +806,14 @@ func (us *UserStore) GetSessionsId(ctx context.Context, uid string) ([]string, e
 	var listOfSessionId []string
 	psqlStatement := `SELECT id FROM SESSION WHERE userid = $1`
 
-	res, err := us.db.Query(psqlStatement, uid)
+	res, err := us.db.QueryContext(ctx, psqlStatement, uid)
+
 	if err != nil {
 		log.Error().Err(err).Msg(err.Error())
 		return nil, errors.New("unable to find session id")
 	}
+
+	defer res.Close()
 
 	for res.Next() {
 		var sid string
@@ -949,23 +828,4 @@ func (us *UserStore) GetSessionsId(ctx context.Context, uid string) ([]string, e
 
 	return listOfSessionId, nil
 
-}
-
-func (us *UserStore) IsSessionUpdated(ctx context.Context, sid string) (bool, error) {
-	psqlStatement := `SELECT updated_at from SESSION where id = $1`
-	var updated_at sql.NullTime
-
-	res := us.db.QueryRow(psqlStatement, sid)
-
-	err := res.Scan(&updated_at)
-	if err != nil {
-		log.Error().Err(err).Msg(err.Error())
-		return false, errors.New("unable to find the session")
-	}
-
-	if !updated_at.Valid {
-		return false, nil
-	}
-
-	return true, nil
 }

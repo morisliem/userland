@@ -16,6 +16,10 @@ type ValidateEmailCodeRequest struct {
 	Code  int    `json:"code"`
 }
 
+/*
+	Updating the email once the email is verified
+*/
+
 func ValidateEmail(userStore store.UserStore, tokenStore store.TokenStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request ValidateEmailCodeRequest
@@ -50,7 +54,15 @@ func ValidateEmail(userStore store.UserStore, tokenStore store.TokenStore) http.
 			return
 		}
 
-		code, err := tokenStore.GetEmailVarificationCode(newValidateEmail.Email)
+		uid, err := userStore.GetUserid(ctx, newValidateEmail.Email)
+		if err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(response.Response(err.Error()))
+			return
+		}
+
+		code, err := tokenStore.GetEmailVarificationCode(uid)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadRequest)
@@ -66,6 +78,17 @@ func ValidateEmail(userStore store.UserStore, tokenStore store.TokenStore) http.
 			json.NewEncoder(w).Encode(response.UnproccesableEntity(tmp))
 			return
 		}
+
+		email, err := tokenStore.GetNewEmail(uid)
+		if err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(response.Response(err.Error()))
+			return
+		}
+
+		newValidateEmail.Email = email
+		newValidateEmail.Id = uid
 
 		err = userStore.ValidateCode(ctx, newValidateEmail)
 		if err != nil {

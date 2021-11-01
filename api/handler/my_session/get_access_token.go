@@ -2,6 +2,7 @@ package mysession
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 	"userland/api/helper"
@@ -61,6 +62,7 @@ func GetAccessToken(userStore store.UserStore, tokenStore store.TokenStore) http
 
 		err = userStore.UpdateUserSession(r.Context(), atJti)
 		if err != nil {
+			fmt.Println("here ;(")
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
 			return

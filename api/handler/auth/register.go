@@ -8,9 +8,11 @@ import (
 	"userland/api/response"
 	"userland/api/validator"
 	"userland/store"
+
+	"github.com/gofrs/uuid"
 )
 
-type RequestRequest struct {
+type RegisterRequest struct {
 	Fullname         string `json:"fullname"`
 	Email            string `json:"email"`
 	Password         string `json:"password"`
@@ -19,7 +21,7 @@ type RequestRequest struct {
 
 func Register(userStore store.UserStore, tokenStore store.TokenStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var request RequestRequest
+		var request RegisterRequest
 		ctx := r.Context()
 		json.NewDecoder(r.Body).Decode(&request)
 
@@ -40,7 +42,16 @@ func Register(userStore store.UserStore, tokenStore store.TokenStore) http.Handl
 			return
 		}
 
+		userId, err := uuid.NewV4()
+		if err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(response.Response(err.Error()))
+			return
+		}
+
 		newRegister := store.User{
+			Id:       userId.String(),
 			Fullname: request.Fullname,
 			Email:    request.Email,
 			Password: hashPassword,
@@ -57,7 +68,15 @@ func Register(userStore store.UserStore, tokenStore store.TokenStore) http.Handl
 
 		go helper.SendEmailVerCode(newRegister.Email, rn)
 
-		err = tokenStore.SetEmailVerificationCode(newRegister.Email, rn)
+		err = tokenStore.SetEmailVerificationCode(newRegister.Id, rn)
+		if err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(response.Response(err.Error()))
+			return
+		}
+
+		err = tokenStore.SetNewEmail(newRegister.Id, newRegister.Email)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
@@ -70,7 +89,7 @@ func Register(userStore store.UserStore, tokenStore store.TokenStore) http.Handl
 	}
 }
 
-func (rr *RequestRequest) ValidateRequest() (map[string]string, error) {
+func (rr *RegisterRequest) ValidateRequest() (map[string]string, error) {
 	res := map[string]string{}
 	nameErr := validator.ValidateFullname(rr.Fullname)
 	if nameErr != nil {

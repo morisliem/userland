@@ -39,7 +39,6 @@ func SetUserPicture(userStore store.UserStore, tokenStore store.TokenStore) http
 
 		fileBytes, err := ioutil.ReadAll(file)
 		if err != nil {
-			fmt.Println("here")
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(response.Bad_request(err.Error()))

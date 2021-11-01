@@ -27,8 +27,7 @@ func DeleteUserProfilePicture(userStore store.UserStore, tokenStore store.TokenS
 			return
 		}
 
-		// removing the file from img directory
-		err = os.Remove("./img/" + picName)
+		err = userStore.DeleteUserPicture(r.Context(), userId)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
@@ -36,7 +35,8 @@ func DeleteUserProfilePicture(userStore store.UserStore, tokenStore store.TokenS
 			return
 		}
 
-		err = userStore.DeleteUserPicture(r.Context(), userId)
+		// removing the file from img directory
+		err = os.Remove("./img/" + picName)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)

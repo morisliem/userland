@@ -55,7 +55,10 @@ func UpdateUserEmail(userStore store.UserStore, tokenStore store.TokenStore) htt
 			Email: request.Email,
 		}
 
-		err = userStore.UpdateUserEmail(r.Context(), newEmail, userId)
+		rn := helper.GenerateRandomNumber()
+		go helper.SendEmailVerCode(newEmail.Email, rn)
+
+		err = tokenStore.SetEmailVerificationCode(userId, rn)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
@@ -63,10 +66,7 @@ func UpdateUserEmail(userStore store.UserStore, tokenStore store.TokenStore) htt
 			return
 		}
 
-		rn := helper.GenerateRandomNumber()
-		go helper.SendEmailVerCode(newEmail.Email, rn)
-
-		err = tokenStore.SetEmailVerificationCode(newEmail.Email, rn)
+		err = tokenStore.SetNewEmail(userId, newEmail.Email)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
@@ -83,14 +83,14 @@ func UpdateUserEmail(userStore store.UserStore, tokenStore store.TokenStore) htt
 		}
 
 		// removing the current refresh token in redis
-		isUpdate, err := userStore.IsSessionUpdated(r.Context(), atJti)
+		itHas, err := tokenStore.HasRefreshToken(atJti)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
-		if isUpdate {
+		if itHas {
 			deleted, err = jwt.DeleteRTAuth(atJti, tokenStore)
 			if err != nil || deleted == 0 {
 				w.Header().Set("Content-Type", "application/json")

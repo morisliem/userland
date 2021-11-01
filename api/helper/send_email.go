@@ -6,7 +6,7 @@ import (
 )
 
 func SendEmailVerCode(emailAddress string, code int) error {
-	auth := smtp.PlainAuth("", "9011cf9cba0843", "37993dfc985c18", "smtp.mailtrap.io")
+	auth := smtp.PlainAuth("", "91af5319a267d0", "73d83ac4eef862", "smtp.mailtrap.io")
 
 	to := []string{emailAddress}
 	msg := []byte(
@@ -24,7 +24,7 @@ func SendEmailVerCode(emailAddress string, code int) error {
 }
 
 func SendEmailResetPwdCode(emailAddress string, code int) error {
-	auth := smtp.PlainAuth("", "9011cf9cba0843", "37993dfc985c18", "smtp.mailtrap.io")
+	auth := smtp.PlainAuth("", "91af5319a267d0", "73d83ac4eef862", "smtp.mailtrap.io")
 
 	to := []string{emailAddress}
 	msg := []byte(
