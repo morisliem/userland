@@ -25,6 +25,14 @@ func ForgetPassword(userStore store.UserStore, tokenStore store.TokenStore) http
 			return
 		}
 
+		res, err := request.ValidateRequest()
+		if err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			json.NewEncoder(w).Encode(response.UnproccesableEntity(res))
+			return
+		}
+
 		newRequest := store.User{
 			Email: request.Email,
 		}

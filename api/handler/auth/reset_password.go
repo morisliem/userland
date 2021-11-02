@@ -103,6 +103,11 @@ func ResetPassword(userStore store.UserStore, tokenStore store.TokenStore) http.
 func (rpr *ResetPasswordRequest) ValidateRequest() (map[string]string, error) {
 	res := map[string]string{}
 
+	errEmail := validator.ValidateEmail(rpr.Email)
+	if errEmail != nil {
+		res["email"] = errEmail.Error()
+	}
+
 	errCode := validator.ValidateCode(rpr.Code)
 	if errCode != nil {
 		res["code"] = errCode.Error()

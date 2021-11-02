@@ -35,7 +35,7 @@ func Login(userStore store.UserStore, tokenStore store.TokenStore) http.HandlerF
 		valErr, err := request.ValidateRequest()
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusBadRequest)
+			w.WriteHeader(http.StatusUnprocessableEntity)
 			json.NewEncoder(w).Encode(response.UnproccesableEntity(valErr))
 			return
 		}
@@ -120,7 +120,7 @@ func (lr *LoginRequest) ValidateRequest() (map[string]string, error) {
 	res := map[string]string{}
 
 	if len(strings.TrimSpace(lr.clientid)) == 0 {
-		res["X-Api-ClientId"] = "required x-api-clientid"
+		res["X-Api-ClientId"] = "x-api-clientid is required"
 	}
 
 	emailErr := validator.ValidateEmail(lr.Email)

@@ -18,6 +18,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-redis/redis"
+	"github.com/rs/zerolog/log"
 )
 
 type Server struct {
@@ -44,7 +45,6 @@ type ServerConfig struct {
 	ShutdownTimeout time.Duration
 }
 
-// init postgresql with lib (with standard, no handling connection directly?)
 func NewServer(config ServerConfig, dataSource *DataSource) *Server {
 	return &Server{
 		Config:     config,
@@ -80,11 +80,9 @@ func (s *Server) Start() {
 
 	err := srv.ListenAndServe()
 	if err != http.ErrServerClosed {
-		// TODO replace with zlogger fatal
-		panic("cannot start server")
+		log.Fatal().Err(err).Msg(err.Error())
 	}
-	// TODO with proper logging with zlogger
-	fmt.Printf("serving %s\n", address)
+	log.Print("serving %s\n", address)
 
 	go func(srv *http.Server) {
 		<-osSigChan
@@ -107,7 +105,6 @@ func (s *Server) initStores() error {
 }
 
 func (s *Server) createHandlers() http.Handler {
-	// TODO pprof and healthcheck
 	r := chi.NewRouter()
 	r.Post("/auth/register", auth.Register(s.stores.userStore, s.stores.tokenStore))
 	r.Post("/auth/register/validate", auth.ValidateEmail(s.stores.userStore, s.stores.tokenStore))

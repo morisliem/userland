@@ -1,12 +1,12 @@
 package main
 
 import (
-	"log"
 	"time"
 	"userland/api"
 	"userland/store"
 
 	"github.com/joho/godotenv"
+	"github.com/rs/zerolog/log"
 )
 
 func main() {
@@ -29,8 +29,7 @@ func main() {
 	}
 	postgresDB, err := store.NewPG(postgresCfg)
 	if err != nil {
-		// TODO proper logging with zlogger
-		log.Fatalf("failed to open db conn: %v\n", err)
+		log.Error().Err(err).Msg(err.Error())
 	}
 
 	redisCfg := store.RedisConfig{
@@ -42,8 +41,7 @@ func main() {
 
 	redisDb, err := store.NewRedis(redisCfg)
 	if err != nil {
-		// log.Error().Err().Msg()
-		log.Fatalf("failed to open redis conn: %v\n", err)
+		log.Error().Err(err).Msg(err.Error())
 	}
 
 	serverDataSource := &api.DataSource{
