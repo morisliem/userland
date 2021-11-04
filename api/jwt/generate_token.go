@@ -11,7 +11,7 @@ import (
 	"github.com/golang-jwt/jwt"
 )
 
-func GenerateAccessToken(userId string, atJti string, rtJti string) (store.TokenDetails, error) {
+func GenerateAccessToken(userId string, atJti string, rtJti string, ts store.TokenStore) (store.TokenDetails, error) {
 	td := store.TokenDetails{}
 	atDuration, _ := strconv.Atoi(os.Getenv("ACCESS_TOKEN_DURATION"))
 	td.AtExpires = time.Now().Add(time.Minute * time.Duration(atDuration)).Unix()
@@ -44,10 +44,16 @@ func GenerateAccessToken(userId string, atJti string, rtJti string) (store.Token
 	if err != nil {
 		return td, err
 	}
+
+	errAccess := ts.StoreAccess(userId, td)
+	if errAccess != nil {
+		return td, errAccess
+	}
+
 	return td, nil
 }
 
-func GenerateRefreshToken(userId string, atJti string, rtJti string) (store.TokenDetails, error) {
+func GenerateRefreshToken(userId string, atJti string, rtJti string, ts store.TokenStore) (store.TokenDetails, error) {
 	td := store.TokenDetails{}
 	rtDuration, _ := strconv.Atoi(os.Getenv("REFRESH_TOKEN_DURATION"))
 	td.RtExpires = time.Now().Add(time.Minute * time.Duration(rtDuration)).Unix()
@@ -65,6 +71,11 @@ func GenerateRefreshToken(userId string, atJti string, rtJti string) (store.Toke
 	td.RefreshToken, err = rt.SignedString([]byte(os.Getenv("REFRESH_KEY")))
 	if err != nil {
 		return td, err
+	}
+
+	errAccess := ts.StoreRefresh(userId, td)
+	if errAccess != nil {
+		return td, errAccess
 	}
 	return td, nil
 }

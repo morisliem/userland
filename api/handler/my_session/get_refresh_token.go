@@ -26,7 +26,7 @@ func GetRefreshToken(userStore store.UserStore, tokenStore store.TokenStore) htt
 			return
 		}
 
-		atJti, rtJti, err := jwt.GetAtJtinRtJti(r)
+		atJti, rtJti, err := jwt.GetAtJtiNRtJtiFromAccessToken(r)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusUnauthorized)
@@ -34,19 +34,11 @@ func GetRefreshToken(userStore store.UserStore, tokenStore store.TokenStore) htt
 			return
 		}
 
-		res, err := jwt.GenerateRefreshToken(userId, atJti, rtJti)
+		res, err := jwt.GenerateRefreshToken(userId, atJti, rtJti, tokenStore)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(response.Response(err.Error()))
-			return
-		}
-
-		saveErr := jwt.CreateRTAuth(userId, res, tokenStore)
-		if err != nil {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(response.Response(saveErr.Error()))
 			return
 		}
 

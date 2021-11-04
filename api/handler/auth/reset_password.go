@@ -41,8 +41,8 @@ func ResetPassword(userStore store.UserStore, tokenStore store.TokenStore) http.
 		code, err := tokenStore.GetEmailVarificationCode(request.Email)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(response.Bad_request(err.Error()))
+			w.WriteHeader(http.StatusUnauthorized)
+			json.NewEncoder(w).Encode(response.Unautorized_request(err.Error()))
 			return
 		}
 
@@ -67,10 +67,8 @@ func ResetPassword(userStore store.UserStore, tokenStore store.TokenStore) http.
 		for i := 0; i < len(listOfPwd); i++ {
 			if helper.ComparePasswordHash(request.Password, listOfPwd[i]) {
 				w.Header().Set("Content-Type", "application/json")
-				w.WriteHeader(http.StatusUnprocessableEntity)
-				errMsg := map[string]string{}
-				errMsg["password"] = "You have used this password before, try to use other password"
-				json.NewEncoder(w).Encode(response.UnproccesableEntity(errMsg))
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(response.Bad_request("You have used this password before, try to use other password"))
 				return
 			}
 		}

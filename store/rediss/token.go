@@ -58,12 +58,15 @@ func (ts *TokenStore) GetAtUserId(td *store.AccessDetail) (string, error) {
 	key := "access_token:" + td.AccessUuid
 
 	res, err := ts.db.Get(key).Result()
-	if err != nil {
-		return "", err
-	}
 	if len(res) == 0 {
 		return "", errors.New("token is expired")
 	}
+
+	if err != nil {
+		log.Error().Err(err).Msg(err.Error())
+		return "", err
+	}
+
 	return td.UserId, nil
 }
 
@@ -71,11 +74,13 @@ func (ts *TokenStore) GetRtUserId(td *store.RefreshDetail) (string, error) {
 	key := "refresh_token:" + td.AccessJti
 
 	res, err := ts.db.Get(key).Result()
-	if err != nil {
-		return "", err
-	}
 	if len(res) == 0 {
 		return "", errors.New("token is expired")
+	}
+
+	if err != nil {
+		log.Error().Err(err).Msg(err.Error())
+		return "", err
 	}
 	return td.UserId, nil
 }
@@ -112,12 +117,14 @@ func (ts *TokenStore) SetEmailVerificationCode(uid string, s int) error {
 func (ts *TokenStore) GetEmailVarificationCode(uid string) (int, error) {
 	key := "code:" + uid
 	res, err := ts.db.Get(key).Result()
+
+	if len(res) == 0 {
+		return 0, errors.New("code is expired")
+	}
+
 	if err != nil {
 		log.Error().Err(err).Msg(err.Error())
 		return 0, err
-	}
-	if len(res) == 0 {
-		return 0, errors.New("code is expired")
 	}
 
 	code, err := strconv.Atoi(res)

@@ -27,15 +27,7 @@ func GetAccessToken(userStore store.UserStore, tokenStore store.TokenStore) http
 			return
 		}
 
-		atJti, err := jwt.GetAtJtiFromRt(r)
-		if err != nil {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusUnauthorized)
-			json.NewEncoder(w).Encode(response.Unautorized_request(err.Error()))
-			return
-		}
-
-		rtJti, err := jwt.GetRtJti(r)
+		atJti, rtJti, err := jwt.GetAtJtiNRtJtiFromRefreshToken(r)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusUnauthorized)
@@ -44,19 +36,11 @@ func GetAccessToken(userStore store.UserStore, tokenStore store.TokenStore) http
 		}
 
 		// generated new access token by adding the current jwt id (access token) and adding refresh token jwt id
-		res, err := jwt.GenerateAccessToken(userId, atJti, rtJti)
+		res, err := jwt.GenerateAccessToken(userId, atJti, rtJti, tokenStore)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(response.Response(err.Error()))
-			return
-		}
-
-		saveErr := jwt.CreateATAuth(userId, res, tokenStore)
-		if err != nil {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(response.Response(saveErr.Error()))
 			return
 		}
 

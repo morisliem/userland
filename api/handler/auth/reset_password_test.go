@@ -17,10 +17,19 @@ type resetPwdReq struct {
 	Confirm_password string `json:"confirm_password"`
 }
 
+type resetPwdMockData struct {
+	code     int
+	password []string
+}
+
 func TestResetPassword(t *testing.T) {
+	existingPwd := []string{
+		"123abcDep", "sfvrcwexs", "123abcDeLD",
+	}
 	tt := []struct {
 		name       string
 		input      resetPwdReq
+		dbData     resetPwdMockData
 		statusCode int
 		expected   string
 	}{
@@ -43,6 +52,10 @@ func TestResetPassword(t *testing.T) {
 				Password:         "123abcDe",
 				Confirm_password: "123abcDe",
 			},
+			dbData: resetPwdMockData{
+				code:     12345,
+				password: existingPwd,
+			},
 			statusCode: 201,
 			expected:   fmt.Sprintln(`{"status":true}`),
 		},
@@ -56,10 +69,38 @@ func TestResetPassword(t *testing.T) {
 			},
 			statusCode: 422,
 			expected:   fmt.Sprintln(`{"Fields":{"unmatch_password":"check again your password"}}`),
+		}, {
+			name: "try to add old password",
+			input: resetPwdReq{
+				Email:            "moris@gmail.com",
+				Code:             12345,
+				Password:         "123abcDeLD",
+				Confirm_password: "123abcDeLD",
+			},
+			dbData: resetPwdMockData{
+				code:     12345,
+				password: existingPwd,
+			},
+			statusCode: 400,
+			expected:   fmt.Sprintln(`{"code":400,"message":"you have user this password before, try another password"}`),
+		}, {
+			name: "wrong code",
+			input: resetPwdReq{
+				Email:            "moris@gmail.com",
+				Code:             12345,
+				Password:         "123abcDeLD",
+				Confirm_password: "123abcDeLD",
+			},
+			dbData: resetPwdMockData{
+				code:     12346,
+				password: existingPwd,
+			},
+			statusCode: 400,
+			expected:   fmt.Sprintln(`{"code":400,"message":"you entered wrong code"}`),
 		},
 	}
 
-	handler := func(w http.ResponseWriter, r *http.Request) {
+	handler := func(w http.ResponseWriter, r *http.Request, db resetPwdMockData) {
 		var request ResetPasswordRequest
 		err := json.NewDecoder(r.Body).Decode(&request)
 		if err != nil {
@@ -77,9 +118,25 @@ func TestResetPassword(t *testing.T) {
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(response.Success())
+		if request.Code == db.code {
+			for i := 0; i < 3; i++ {
+				if db.password[i] == request.Password {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusBadRequest)
+					json.NewEncoder(w).Encode(response.Bad_request("you have user this password before, try another password"))
+					return
+				}
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusCreated)
+			json.NewEncoder(w).Encode(response.Success())
+
+		} else {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(response.Bad_request("you entered wrong code"))
+			return
+		}
 	}
 
 	for _, tc := range tt {
@@ -98,7 +155,7 @@ func TestResetPassword(t *testing.T) {
 			r := httptest.NewRequest("POST", "localhost:8080/auth/password/reset", bytes.NewBuffer(rBody))
 			w := httptest.NewRecorder()
 
-			handler(w, r)
+			handler(w, r, tc.dbData)
 
 			if w.Code != tc.statusCode {
 				t.Errorf("expected %d, got %d", tc.statusCode, w.Code)

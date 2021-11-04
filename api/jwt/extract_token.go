@@ -1,7 +1,9 @@
 package jwt
 
 import (
+	"fmt"
 	"net/http"
+	"os"
 	"strings"
 	"userland/store"
 
@@ -20,10 +22,20 @@ func ExtractToken(r *http.Request) string {
 }
 
 func ExtractAccessTokenMetadata(r *http.Request) (*store.AccessDetail, error) {
-	token, err := VerifyAccessToken(r)
+	tkn := ExtractToken(r)
+
+	// This part is used to verify the token
+	token, err := jwt.Parse(tkn, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method : %v", token.Header["alg"])
+		}
+		return []byte(os.Getenv("ACCESS_KEY")), nil
+	})
+
 	if err != nil {
 		return nil, err
 	}
+
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if ok && token.Valid {
 		accessUuid, ok := claims["access_uuid"].(string)
@@ -42,10 +54,20 @@ func ExtractAccessTokenMetadata(r *http.Request) (*store.AccessDetail, error) {
 }
 
 func ExtractRefreshTokenMetadata(r *http.Request) (*store.RefreshDetail, error) {
-	token, err := VerifyRefreshToken(r)
+	tkn := ExtractToken(r)
+
+	// This part is used to verify the token
+	token, err := jwt.Parse(tkn, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method : %v", token.Header["alg"])
+		}
+		return []byte(os.Getenv("REFRESH_KEY")), nil
+	})
+
 	if err != nil {
 		return nil, err
 	}
+
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if ok && token.Valid {
 		refreshUuid, ok := claims["refresh_uuid"].(string)

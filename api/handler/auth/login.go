@@ -70,19 +70,11 @@ func Login(userStore store.UserStore, tokenStore store.TokenStore) http.HandlerF
 		}
 
 		// Generate access token but still missing the refresh token id
-		ts, err := jwt.GenerateAccessToken(userId, "", "")
+		ts, err := jwt.GenerateAccessToken(userId, "", "", tokenStore)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(response.Response(err.Error()))
-			return
-		}
-
-		saveErr := jwt.CreateATAuth(userId, ts, tokenStore)
-		if saveErr != nil {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(response.Response(saveErr.Error()))
 			return
 		}
 
@@ -93,8 +85,6 @@ func Login(userStore store.UserStore, tokenStore store.TokenStore) http.HandlerF
 			json.NewEncoder(w).Encode(response.Response(err.Error()))
 			return
 		}
-
-		// device := r.Header["X-Api-Clientid"]
 
 		// Add session here
 		err = userStore.SetUserSession(ctx, ts, userId, ip, request.clientid)

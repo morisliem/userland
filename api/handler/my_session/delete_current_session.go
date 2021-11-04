@@ -20,7 +20,7 @@ func DeleteCurrentSession(userStore store.UserStore, tokenStore store.TokenStore
 		}
 
 		// getting the jwt id for access token and refresh token
-		atJti, _, err := jwt.GetAtJtinRtJti(r)
+		atJti, _, err := jwt.GetAtJtiNRtJtiFromAccessToken(r)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusUnauthorized)

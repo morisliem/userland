@@ -16,10 +16,16 @@ type loginReq struct {
 	clientid string
 }
 
+type loginMockData struct {
+	email    string
+	password string
+}
+
 func TestLogin(t *testing.T) {
 	tt := []struct {
 		name       string
 		input      loginReq
+		dbData     loginMockData
 		statusCode int
 		expected   string
 	}{
@@ -39,12 +45,41 @@ func TestLogin(t *testing.T) {
 				password: "abc12345D",
 				clientid: "Iphone",
 			},
+			dbData: loginMockData{
+				email:    "moris@gmail.com",
+				password: "abc12345D",
+			},
 			statusCode: 200,
+		}, {
+			name: "incorrect password",
+			input: loginReq{
+				email:    "moris@gmail.com",
+				password: "abc12345D",
+				clientid: "Iphone",
+			},
+			dbData: loginMockData{
+				email:    "moris@gmail.com",
+				password: "abc12345F",
+			},
+			statusCode: 400,
+			expected:   fmt.Sprintln(`{"Message":"password incorrect"}`),
+		}, {
+			name: "incorrect email",
+			input: loginReq{
+				email:    "moriss@gmail.com",
+				password: "abc12345D",
+				clientid: "Iphone",
+			},
+			dbData: loginMockData{
+				email:    "moris@gmail.com",
+				password: "abc12345D",
+			},
+			statusCode: 400,
+			expected:   fmt.Sprintln(`{"Message":"email is not found"}`),
 		},
 	}
 
-	// Still missing testing the db
-	handler := func(w http.ResponseWriter, r *http.Request) {
+	handler := func(w http.ResponseWriter, r *http.Request, db loginMockData) {
 		var request LoginRequest
 		// ctx := r.Context()
 		json.NewDecoder(r.Body).Decode(&request)
@@ -58,13 +93,29 @@ func TestLogin(t *testing.T) {
 			return
 		}
 
-		// newLogin := store.User{
-		// 	Email:    request.Email,
-		// 	Password: request.Password,
-		// }
+		if request.Email == db.email && request.Password == db.password {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+		} else if request.Email != db.email {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(response.Response("email is not found"))
+			return
+		} else if request.Password != db.password {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(response.Response("password incorrect"))
+			return
+		} else {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			res := map[string]string{}
+			res["email"] = "email is not found"
+			res["password"] = "password incorrect"
+			json.NewEncoder(w).Encode(response.UnproccesableEntity(res))
+			return
+		}
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
 	}
 
 	for _, tc := range tt {
@@ -87,7 +138,7 @@ func TestLogin(t *testing.T) {
 
 			w := httptest.NewRecorder()
 
-			handler(w, r)
+			handler(w, r, tc.dbData)
 
 			if w.Code != tc.statusCode {
 				t.Errorf("expected %d, got %d", tc.statusCode, w.Code)

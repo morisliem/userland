@@ -39,7 +39,7 @@ func (us *UserStore) UpdatePassword(ctx context.Context, uid string, u store.Use
 	var updatePassword *sql.Stmt
 	updatePassword, err = tx.Prepare("UPDATE person SET Password = $1 WHERE id = $2")
 	if err != nil {
-		log.Error().Err(err).Msg("error preparing statement")
+		log.Error().Err(err).Msg("error preparing update password statement")
 		return errors.New("failed to update password")
 	}
 	defer updatePassword.Close()
@@ -58,7 +58,7 @@ func (us *UserStore) UpdatePassword(ctx context.Context, uid string, u store.Use
 	var insertNewPassword *sql.Stmt
 	insertNewPassword, err = tx.Prepare(`INSERT INTO user_password (id, password, created_at) values ($1, $2, $3)`)
 	if err != nil {
-		log.Error().Err(err).Msg("error preparing statement")
+		log.Error().Err(err).Msg("error preparing insert new password statement")
 		return errors.New("failed to update password")
 	}
 	defer insertNewPassword.Close()
@@ -290,6 +290,10 @@ func (us *UserStore) ValidateCode(ctx context.Context, u store.User) error {
 
 	var result sql.Result
 	result, err = updateUser.Exec(u.Id, u.Email, true)
+	if err != nil {
+		log.Error().Err(err).Msg("error preparing statement")
+		return errors.New("failed to update user state")
+	}
 
 	rowsAff, _ := result.RowsAffected()
 
