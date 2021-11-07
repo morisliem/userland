@@ -25,6 +25,14 @@ func ForgetPassword(userStore store.UserStore, tokenStore store.TokenStore) http
 			return
 		}
 
+		res, err := request.ValidateRequest()
+		if err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			json.NewEncoder(w).Encode(response.UnproccesableEntity(res))
+			return
+		}
+
 		newRequest := store.User{
 			Email: request.Email,
 		}
@@ -39,6 +47,14 @@ func ForgetPassword(userStore store.UserStore, tokenStore store.TokenStore) http
 
 		rn := helper.GenerateRandomNumber()
 		go helper.SendEmailResetPwdCode(newRequest.Email, rn)
+
+		err = tokenStore.SetEmailVerificationCode(newRequest.Email, rn)
+		if err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(response.Response(err.Error()))
+			return
+		}
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)

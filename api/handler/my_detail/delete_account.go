@@ -16,7 +16,7 @@ type DeleteAccountRequest struct {
 func DeleteUserAccount(userStore store.UserStore, tokenStore store.TokenStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request DeleteAccountRequest
-		userId, err := helper.AuthenticateUser(r, tokenStore)
+		userId, err := helper.AuthenticateUserAccessToken(r, tokenStore)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusUnauthorized)
@@ -40,10 +40,9 @@ func DeleteUserAccount(userStore store.UserStore, tokenStore store.TokenStore) h
 			return
 		}
 
-		listOfPwd, _ := userStore.GetPasswords(r.Context(), userId)
-		reverse(listOfPwd)
+		userPwd, _ := userStore.GetPassword(r.Context(), userId)
 
-		if !helper.ComparePasswordHash(request.Password, listOfPwd[0]) {
+		if !helper.ComparePasswordHash(request.Password, userPwd) {
 			res := map[string]string{
 				"message": "password incorrect",
 			}

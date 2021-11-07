@@ -14,7 +14,7 @@ type GetEmailResponse struct {
 
 func GetUserEmail(userStore store.UserStore, tokenStore store.TokenStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userId, err := helper.AuthenticateUser(r, tokenStore)
+		userId, err := helper.AuthenticateUserAccessToken(r, tokenStore)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusUnauthorized)

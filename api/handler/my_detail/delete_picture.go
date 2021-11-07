@@ -3,22 +3,14 @@ package mydetail
 import (
 	"encoding/json"
 	"net/http"
+	"os"
 	"userland/api/helper"
 	"userland/api/response"
 	"userland/store"
 )
 
-type UpdateUserRequest struct {
-	Fullname string `json:"fullname"`
-	Location string `json:"location"`
-	Bio      string `json:"bio"`
-	Web      string `json:"web"`
-}
-
-func UpdateUserDetail(userStore store.UserStore, tokenStore store.TokenStore) http.HandlerFunc {
+func DeleteUserProfilePicture(userStore store.UserStore, tokenStore store.TokenStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var request UpdateUserRequest
-
 		userId, err := helper.AuthenticateUserAccessToken(r, tokenStore)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
@@ -27,22 +19,24 @@ func UpdateUserDetail(userStore store.UserStore, tokenStore store.TokenStore) ht
 			return
 		}
 
-		err = json.NewDecoder(r.Body).Decode(&request)
+		picName, err := userStore.GetUserProfilePicture(r.Context(), userId)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(response.Bad_request(err.Error()))
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(response.Response(err.Error()))
 			return
 		}
 
-		newUpdate := store.User{
-			Fullname: request.Fullname,
-			Location: request.Location,
-			Bio:      request.Bio,
-			Web:      request.Web,
+		err = userStore.DeleteUserPicture(r.Context(), userId)
+		if err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(response.Response(err.Error()))
+			return
 		}
 
-		err = userStore.UpdateUserDetail(r.Context(), newUpdate, userId)
+		// removing the file from img directory
+		err = os.Remove("./img/" + picName)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
@@ -51,7 +45,8 @@ func UpdateUserDetail(userStore store.UserStore, tokenStore store.TokenStore) ht
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusCreated)
+		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(response.Success())
+
 	}
 }

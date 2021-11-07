@@ -41,8 +41,8 @@ func ResetPassword(userStore store.UserStore, tokenStore store.TokenStore) http.
 		code, err := tokenStore.GetEmailVarificationCode(request.Email)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(response.Bad_request(err.Error()))
+			w.WriteHeader(http.StatusUnauthorized)
+			json.NewEncoder(w).Encode(response.Unautorized_request(err.Error()))
 			return
 		}
 
@@ -62,22 +62,13 @@ func ResetPassword(userStore store.UserStore, tokenStore store.TokenStore) http.
 		}
 
 		listOfPwd, _ := userStore.GetPasswords(ctx, userId)
-		reverse(listOfPwd)
 
-		loopTo := 0
-		if len(listOfPwd) > 3 {
-			loopTo = 2
-		} else {
-			loopTo = len(listOfPwd) - 1
-		}
-
-		for i := 0; i < loopTo; i++ {
+		// checking if user has used the password before
+		for i := 0; i < len(listOfPwd); i++ {
 			if helper.ComparePasswordHash(request.Password, listOfPwd[i]) {
 				w.Header().Set("Content-Type", "application/json")
-				w.WriteHeader(http.StatusUnprocessableEntity)
-				errMsg := map[string]string{}
-				errMsg["password"] = "You have used this password before, try to use other password"
-				json.NewEncoder(w).Encode(response.UnproccesableEntity(errMsg))
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(response.Bad_request("You have used this password before, try to use other password"))
 				return
 			}
 		}
@@ -110,6 +101,11 @@ func ResetPassword(userStore store.UserStore, tokenStore store.TokenStore) http.
 func (rpr *ResetPasswordRequest) ValidateRequest() (map[string]string, error) {
 	res := map[string]string{}
 
+	errEmail := validator.ValidateEmail(rpr.Email)
+	if errEmail != nil {
+		res["email"] = errEmail.Error()
+	}
+
 	errCode := validator.ValidateCode(rpr.Code)
 	if errCode != nil {
 		res["code"] = errCode.Error()
@@ -133,11 +129,5 @@ func (rpr *ResetPasswordRequest) ValidateRequest() (map[string]string, error) {
 		return res, errors.New("Error")
 	} else {
 		return res, nil
-	}
-}
-
-func reverse(s []string) {
-	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
-		s[i], s[j] = s[j], s[i]
 	}
 }

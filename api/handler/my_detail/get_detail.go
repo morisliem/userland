@@ -21,8 +21,7 @@ type UserDetailResponse struct {
 
 func GetUserDetail(userStore store.UserStore, tokenStore store.TokenStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-
-		userId, err := helper.AuthenticateUser(r, tokenStore)
+		userId, err := helper.AuthenticateUserAccessToken(r, tokenStore)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusUnauthorized)
@@ -43,6 +42,7 @@ func GetUserDetail(userStore store.UserStore, tokenStore store.TokenStore) http.
 			Fullname:   res.Fullname,
 			Location:   res.Location,
 			Bio:        res.Bio,
+			Web:        res.Web,
 			Picture:    res.Picture,
 			Created_at: res.Created_at,
 		}

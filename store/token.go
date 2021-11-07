@@ -12,14 +12,25 @@ type TokenDetails struct {
 type AccessDetail struct {
 	AccessUuid string
 	UserId     string
+	RefreshJti string
+}
+
+type RefreshDetail struct {
+	AccessJti   string
+	RefreshUuid string
+	UserId      string
 }
 
 type TokenStore interface {
 	StoreAccess(userId string, td TokenDetails) error
 	StoreRefresh(userId string, td TokenDetails) error
-	GetUserId(td *AccessDetail) (string, error)
-	DeleteUserId(userId string) (int64, error)
-	SetEmailVerificationCode(email string, code int) error
-	GetEmailVarificationCode(email string) (int, error)
-	// GetToken(ctx context.Context) error
+	GetAtUserId(td *AccessDetail) (string, error)
+	GetRtUserId(td *RefreshDetail) (string, error)
+	SetEmailVerificationCode(uid string, code int) error
+	GetEmailVarificationCode(uid string) (int, error)
+	SetNewEmail(uid string, email string) error
+	GetNewEmail(uid string) (string, error)
+	DeleteAtJti(uid string) (int64, error)
+	DeleteRtJti(uid string) (int64, error)
+	HasRefreshToken(jti string) (bool, error)
 }

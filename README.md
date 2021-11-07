@@ -7,17 +7,30 @@ Userland is an imaginary authentication and session tracking service that is def
 This implementation is going to have extra requirements:
 
 - Password minimum 8 characters, has lowercase, uppercase, number
+
 - Forgot password: must be different from last 3 passwords
+
 - Use at some common JWT tokens payload
+
 - Use JTI to revoke session https://datatracker.ietf.org/doc/html/rfc7519#section-4.1.7 
+
 - Use prepared statement
+
 - Change email, needs to send confirmation email to the new email
+
 - Delete account = soft delete
+
 - Client list can be added on demand with  “upsert”
+
 - Password is hashed on rest, hash using bcrypt
+
 - OTP has timeout and immediately revoke OTP when it is used
 
+  
 
+## API Contract
+
+https://userland.docs.apiary.io/#introduction/http-status-codes
 
 ## How to run the code
 
@@ -77,4 +90,6 @@ userland:
   	- "8080:80/tcp" # set 8080 to other port
   ...
 ```
+
+
 

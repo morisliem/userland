@@ -19,7 +19,7 @@ type ChangePasswordRequest struct {
 func ChangeUserPassword(userStore store.UserStore, tokenStore store.TokenStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request ChangePasswordRequest
-		userId, err := helper.AuthenticateUser(r, tokenStore)
+		userId, err := helper.AuthenticateUserAccessToken(r, tokenStore)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusUnauthorized)
@@ -44,9 +44,9 @@ func ChangeUserPassword(userStore store.UserStore, tokenStore store.TokenStore) 
 		}
 
 		listOfPwd, _ := userStore.GetPasswords(r.Context(), userId)
-		reverse(listOfPwd)
+		userPwd, _ := userStore.GetPassword(r.Context(), userId)
 
-		if !helper.ComparePasswordHash(request.Current_Password, listOfPwd[0]) {
+		if !helper.ComparePasswordHash(request.Current_Password, userPwd) {
 			res := map[string]string{
 				"message": "password incorrect",
 			}
@@ -56,14 +56,7 @@ func ChangeUserPassword(userStore store.UserStore, tokenStore store.TokenStore) 
 			return
 		}
 
-		loopTo := 0
-		if len(listOfPwd) > 3 {
-			loopTo = 2
-		} else {
-			loopTo = len(listOfPwd) - 1
-		}
-
-		for i := 0; i < loopTo; i++ {
+		for i := 0; i < len(listOfPwd); i++ {
 			if helper.ComparePasswordHash(request.Password, listOfPwd[i]) {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusUnprocessableEntity)
@@ -127,11 +120,5 @@ func (cpr *ChangePasswordRequest) ValidateRequest() (map[string]string, error) {
 		return res, errors.New("Error")
 	} else {
 		return res, nil
-	}
-}
-
-func reverse(s []string) {
-	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
-		s[i], s[j] = s[j], s[i]
 	}
 }
