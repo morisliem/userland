@@ -77,7 +77,6 @@ func main() {
 	}()
 
 	go kafka_job.LoginLog(context.Background(), msgBroker, logStore, terminateWorkerChan)
-
 	srv := api.NewServer(serverCfg, serverDataSource, msgBroker)
 	srv.Start()
 }
