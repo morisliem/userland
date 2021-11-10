@@ -71,6 +71,8 @@ func main() {
 		panic(err)
 	}
 
+	msgBroker.CreateTopic(context.Background())
+
 	terminateWorkerChan := make(chan int, 1)
 	defer func() {
 		terminateWorkerChan <- 1

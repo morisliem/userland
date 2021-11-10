@@ -1,9 +1,11 @@
 package broker
 
 import (
+	"context"
 	"encoding/json"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/rs/zerolog/log"
 )
 
 const TopicName = "login_succeed"
@@ -21,6 +23,7 @@ type Broker struct {
 type BrokerInterface interface {
 	SendLog(topic string, logData LoginLog) error
 	GetConsumer() *kafka.Consumer
+	CreateTopic(ctx context.Context)
 }
 
 func (b Broker) SendLog(topic string, ll LoginLog) error {
@@ -56,4 +59,21 @@ func NewBroker(consumerConfig *kafka.ConfigMap, producerConfig *kafka.ConfigMap)
 	}
 
 	return broker, nil
+}
+
+func (b Broker) CreateTopic(ctx context.Context) {
+	admin, err := kafka.NewAdminClientFromProducer(b.producer)
+	if err != nil {
+		log.Error().Err(err)
+	}
+	_, err = admin.CreateTopics(ctx,
+		[]kafka.TopicSpecification{{
+			Topic:             TopicName,
+			NumPartitions:     2,
+			ReplicationFactor: 1,
+		}})
+	if err != nil {
+		log.Error().Err(err)
+	}
+	admin.Close()
 }
