@@ -103,7 +103,7 @@ func Login(userStore store.UserStore, tokenStore store.TokenStore, kafka broker.
 			return
 		}
 
-		ts, err := jwt.GenerateAccessToken(userId, "", "", tokenStore)
+		ts, err := jwt.GenerateAccessToken(userId, tokenStore)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadRequest)

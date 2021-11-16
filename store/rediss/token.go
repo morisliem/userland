@@ -56,8 +56,8 @@ func (ts *TokenStore) HasRefreshToken(jti string) (bool, error) {
 	}
 }
 
-func (ts *TokenStore) GetAtUserId(td *store.AccessDetail) (string, error) {
-	key := "access_token:" + td.AccessUuid
+func (ts *TokenStore) GetAtUserId(atJti string) (string, error) {
+	key := "access_token:" + atJti
 
 	res, err := ts.db.Get(key).Result()
 	if len(res) == 0 {
@@ -69,11 +69,11 @@ func (ts *TokenStore) GetAtUserId(td *store.AccessDetail) (string, error) {
 		return "", err
 	}
 
-	return td.UserId, nil
+	return res, nil
 }
 
-func (ts *TokenStore) GetRtUserId(td *store.RefreshDetail) (string, error) {
-	key := "refresh_token:" + td.AccessJti
+func (ts *TokenStore) GetRtUserId(atJti string) (string, error) {
+	key := "refresh_token:" + atJti
 
 	res, err := ts.db.Get(key).Result()
 	if len(res) == 0 {
@@ -84,7 +84,7 @@ func (ts *TokenStore) GetRtUserId(td *store.RefreshDetail) (string, error) {
 		log.Error().Err(err).Msg(err.Error())
 		return "", err
 	}
-	return td.UserId, nil
+	return res, nil
 }
 
 func (ts *TokenStore) DeleteAtJti(atJti string) (int64, error) {

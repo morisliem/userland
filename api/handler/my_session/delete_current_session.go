@@ -9,6 +9,9 @@ import (
 	"userland/store"
 )
 
+// Another test case try to make a lot of new access token from a refresh token
+// still need to remove the last refresh token when want to create a new refresh token
+
 func DeleteCurrentSession(userStore store.UserStore, tokenStore store.TokenStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		_, err := helper.AuthenticateUserAccessToken(r, tokenStore)
@@ -19,7 +22,7 @@ func DeleteCurrentSession(userStore store.UserStore, tokenStore store.TokenStore
 			return
 		}
 
-		atJti, _, err := jwt.GetAtJtiNRtJtiFromAccessToken(r)
+		atJti, err := jwt.GetAtJtiFromAccessToken(r)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusUnauthorized)

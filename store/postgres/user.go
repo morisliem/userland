@@ -702,7 +702,7 @@ func (us *UserStore) GetUserSession(ctx context.Context, uid string, sessionId s
 	return userSessionResponse, nil
 }
 
-func (us *UserStore) UpdateUserSession(ctx context.Context, sessionId string) error {
+func (us *UserStore) UpdateUserSession(ctx context.Context, prevSessionId string, newSessionId string) error {
 	var tx *sql.Tx
 	tx, err := us.db.Begin()
 
@@ -718,14 +718,14 @@ func (us *UserStore) UpdateUserSession(ctx context.Context, sessionId string) er
 	}()
 
 	var updateSession *sql.Stmt
-	updateSession, err = tx.Prepare(`UPDATE session Set Updated_at = $2 Where id = $1`)
+	updateSession, err = tx.Prepare(`UPDATE session Set Updated_at = $2, id = $3 Where id = $1`)
 	if err != nil {
 		log.Error().Err(err).Msg("error preparing statement")
 		return errors.New("failed to update session")
 	}
 	defer updateSession.Close()
 
-	result, err := updateSession.Exec(sessionId, time.Now())
+	result, err := updateSession.Exec(prevSessionId, time.Now(), newSessionId)
 	rowsAff, _ := result.RowsAffected()
 
 	if err != nil || rowsAff != 1 {

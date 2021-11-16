@@ -26,7 +26,7 @@ func DeleteUserAccount(userStore store.UserStore, tokenStore store.TokenStore) h
 			return
 		}
 
-		atJti, _, err := jwt.GetAtJtiNRtJtiFromAccessToken(r)
+		atJti, err := jwt.GetAtJtiFromAccessToken(r)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusUnauthorized)

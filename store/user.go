@@ -51,7 +51,7 @@ type UserStore interface {
 	EmailExist(ctx context.Context, email string) error
 	SetUserSession(ctx context.Context, t TokenDetails, uid string, ip string, device string) error
 	GetUserSession(ctx context.Context, uid string, sessionId string) (UserSession, error)
-	UpdateUserSession(ctx context.Context, sessionId string) error
+	UpdateUserSession(ctx context.Context, prevSessionId string, newSessionId string) error
 	DeleteCurrentSession(ctx context.Context, sessionId string) error
 	DeleteOtherSession(ctx context.Context, uid string, sessionId string) error
 	GetSessionsId(ctx context.Context, uid string) ([]string, error)

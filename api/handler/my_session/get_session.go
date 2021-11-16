@@ -2,6 +2,7 @@ package mysession
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 	"userland/api/helper"
@@ -35,7 +36,7 @@ func GetUserSession(userStore store.UserStore, tokenStore store.TokenStore) http
 			return
 		}
 
-		atJti, _, err := jwt.GetAtJtiNRtJtiFromAccessToken(r)
+		atJti, err := jwt.GetAtJtiFromAccessToken(r)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusUnauthorized)
@@ -47,6 +48,7 @@ func GetUserSession(userStore store.UserStore, tokenStore store.TokenStore) http
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Println(err)
 			return
 		}
 
