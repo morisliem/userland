@@ -3,6 +3,7 @@ module userland
 go 1.16
 
 require (
+	github.com/confluentinc/confluent-kafka-go v1.7.0
 	github.com/go-chi/chi/v5 v5.0.4
 	github.com/go-redis/redis v6.15.9+incompatible
 	github.com/gofrs/uuid v4.1.0+incompatible

@@ -9,28 +9,16 @@ type TokenDetails struct {
 	RtExpires    int64
 }
 
-type AccessDetail struct {
-	AccessUuid string
-	UserId     string
-	RefreshJti string
-}
-
-type RefreshDetail struct {
-	AccessJti   string
-	RefreshUuid string
-	UserId      string
-}
-
 type TokenStore interface {
 	StoreAccess(userId string, td TokenDetails) error
 	StoreRefresh(userId string, td TokenDetails) error
-	GetAtUserId(td *AccessDetail) (string, error)
-	GetRtUserId(td *RefreshDetail) (string, error)
+	GetAtUserId(atJti string) (string, error)
+	GetRtUserId(atJti string) (string, error)
 	SetEmailVerificationCode(uid string, code int) error
 	GetEmailVarificationCode(uid string) (int, error)
 	SetNewEmail(uid string, email string) error
 	GetNewEmail(uid string) (string, error)
-	DeleteAtJti(uid string) (int64, error)
-	DeleteRtJti(uid string) (int64, error)
+	DeleteAtJti(atJti string) (int64, error)
+	DeleteRtJti(atJti string) (int64, error)
 	HasRefreshToken(jti string) (bool, error)
 }

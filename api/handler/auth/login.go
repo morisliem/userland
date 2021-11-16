@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -11,6 +12,9 @@ import (
 	"userland/api/response"
 	"userland/api/validator"
 	"userland/store"
+	"userland/store/broker"
+
+	"github.com/rs/zerolog/log"
 )
 
 type LoginRequest struct {
@@ -25,7 +29,7 @@ type GetATResponse struct {
 	Expired_at time.Time `json:"expired_at"`
 }
 
-func Login(userStore store.UserStore, tokenStore store.TokenStore) http.HandlerFunc {
+func Login(userStore store.UserStore, tokenStore store.TokenStore, kafka broker.BrokerInterface) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request LoginRequest
 		ctx := r.Context()
@@ -47,13 +51,18 @@ func Login(userStore store.UserStore, tokenStore store.TokenStore) http.HandlerF
 
 		is_active, err := userStore.EmailActive(ctx, newLogin)
 		if err != nil {
+			if err == sql.ErrNoRows {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(response.Bad_request("unable to find user"))
+				return
+			}
+
 			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(response.Response(err.Error()))
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
-		// To check if the user has activated their email or not
 		if !is_active {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadRequest)
@@ -61,20 +70,44 @@ func Login(userStore store.UserStore, tokenStore store.TokenStore) http.HandlerF
 			return
 		}
 
-		userId, err := userStore.GetUserId(ctx, newLogin)
+		pwd, err := userStore.GetPasswordFromEmail(ctx, newLogin.Email)
 		if err != nil {
+			if err == sql.ErrNoRows {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(response.Bad_request("unable to find user"))
+				return
+			}
 			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(response.Response(err.Error()))
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
-		// Generate access token but still missing the refresh token id
-		ts, err := jwt.GenerateAccessToken(userId, "", "", tokenStore)
+		if !helper.ComparePasswordHash(newLogin.Password, pwd) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(response.Bad_request("password incorrect"))
+			return
+		}
+
+		userId, err := userStore.GetUserId(ctx, newLogin.Email)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(response.Bad_request("unable to find user"))
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		ts, err := jwt.GenerateAccessToken(userId, tokenStore)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(response.Response(err.Error()))
+			json.NewEncoder(w).Encode(response.Bad_request(err.Error()))
 			return
 		}
 
@@ -82,11 +115,10 @@ func Login(userStore store.UserStore, tokenStore store.TokenStore) http.HandlerF
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(response.Response(err.Error()))
+			json.NewEncoder(w).Encode(response.Bad_request(err.Error()))
 			return
 		}
 
-		// Add session here
 		err = userStore.SetUserSession(ctx, ts, userId, ip, request.clientid)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
@@ -100,6 +132,16 @@ func Login(userStore store.UserStore, tokenStore store.TokenStore) http.HandlerF
 			Expired_at: time.Unix(ts.AtExpires, 0),
 		}
 
+		logData := broker.LoginLog{
+			Username:   userId,
+			Ip_address: ip,
+		}
+
+		err = kafka.SendLog(broker.TopicName, logData)
+		if err != nil {
+			log.Error().Err(err).Msg("publisher failed to publish data")
+		}
+
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(at)
@@ -110,7 +152,7 @@ func (lr *LoginRequest) ValidateRequest() (map[string]string, error) {
 	res := map[string]string{}
 
 	if len(strings.TrimSpace(lr.clientid)) == 0 {
-		res["X-Api-ClientId"] = "x-api-clientid is required"
+		res["X-Api-ClientId"] = "X-Api-ClientId is required"
 	}
 
 	emailErr := validator.ValidateEmail(lr.Email)

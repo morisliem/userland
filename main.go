@@ -1,10 +1,15 @@
 package main
 
 import (
+	"context"
 	"time"
 	"userland/api"
+	"userland/api/kafka_job"
 	"userland/store"
+	"userland/store/broker"
+	"userland/store/postgres"
 
+	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/joho/godotenv"
 	"github.com/rs/zerolog/log"
 )
@@ -32,6 +37,8 @@ func main() {
 		log.Error().Err(err).Msg(err.Error())
 	}
 
+	logStore := postgres.NewLoginStore(postgresDB)
+
 	redisCfg := store.RedisConfig{
 		Host:     "redis",
 		Port:     6379,
@@ -49,6 +56,29 @@ func main() {
 		RedisDB:    redisDb,
 	}
 
-	srv := api.NewServer(serverCfg, serverDataSource)
+	prodCfg := &kafka.ConfigMap{
+		"bootstrap.servers": "kafka:9092",
+	}
+
+	consCfg := &kafka.ConfigMap{
+		"bootstrap.servers": "kafka:9092",
+		"group.id":          "userland",
+		"auto.offset.reset": "latest",
+	}
+
+	msgBroker, err := broker.NewBroker(consCfg, prodCfg)
+	if err != nil {
+		panic(err)
+	}
+
+	msgBroker.CreateTopic(context.Background())
+
+	terminateWorkerChan := make(chan int, 1)
+	defer func() {
+		terminateWorkerChan <- 1
+	}()
+
+	go kafka_job.LoginLog(context.Background(), msgBroker, logStore, terminateWorkerChan)
+	srv := api.NewServer(serverCfg, serverDataSource, msgBroker)
 	srv.Start()
 }

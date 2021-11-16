@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"userland/store"
 
 	"github.com/golang-jwt/jwt"
 )
@@ -21,10 +20,9 @@ func ExtractToken(r *http.Request) string {
 	return ""
 }
 
-func ExtractAccessTokenMetadata(r *http.Request) (*store.AccessDetail, error) {
+func ExtractAccessTokenMetadata(r *http.Request) (string, error) {
 	tkn := ExtractToken(r)
 
-	// This part is used to verify the token
 	token, err := jwt.Parse(tkn, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method : %v", token.Header["alg"])
@@ -33,30 +31,23 @@ func ExtractAccessTokenMetadata(r *http.Request) (*store.AccessDetail, error) {
 	})
 
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if ok && token.Valid {
 		accessUuid, ok := claims["access_uuid"].(string)
 		if !ok {
-			return nil, err
+			return "", err
 		}
-		userId := claims["user_id"].(string)
-		refresh_jti := claims["refresh_jti"].(string)
-		return &store.AccessDetail{
-			AccessUuid: accessUuid,
-			UserId:     userId,
-			RefreshJti: refresh_jti,
-		}, nil
+		return accessUuid, nil
 	}
-	return nil, nil
+	return "", nil
 }
 
-func ExtractRefreshTokenMetadata(r *http.Request) (*store.RefreshDetail, error) {
+func ExtractRefreshTokenMetadata(r *http.Request) (string, error) {
 	tkn := ExtractToken(r)
 
-	// This part is used to verify the token
 	token, err := jwt.Parse(tkn, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method : %v", token.Header["alg"])
@@ -65,22 +56,13 @@ func ExtractRefreshTokenMetadata(r *http.Request) (*store.RefreshDetail, error) 
 	})
 
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if ok && token.Valid {
-		refreshUuid, ok := claims["refresh_uuid"].(string)
-		if !ok {
-			return nil, err
-		}
-		userId := claims["user_id"].(string)
 		access_jti := claims["access_jti"].(string)
-		return &store.RefreshDetail{
-			RefreshUuid: refreshUuid,
-			UserId:      userId,
-			AccessJti:   access_jti,
-		}, nil
+		return access_jti, nil
 	}
-	return nil, nil
+	return "", nil
 }

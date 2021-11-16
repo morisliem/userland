@@ -2,6 +2,7 @@ package rediss
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"strconv"
 	"time"
@@ -26,6 +27,7 @@ func (ts *TokenStore) StoreAccess(userId string, td store.TokenDetails) error {
 
 	err := ts.db.Set(key, userId, time.Until(time.Unix(td.AtExpires, 0))).Err()
 	if err != nil {
+		fmt.Println("if error occur")
 		return err
 	}
 
@@ -54,8 +56,8 @@ func (ts *TokenStore) HasRefreshToken(jti string) (bool, error) {
 	}
 }
 
-func (ts *TokenStore) GetAtUserId(td *store.AccessDetail) (string, error) {
-	key := "access_token:" + td.AccessUuid
+func (ts *TokenStore) GetAtUserId(atJti string) (string, error) {
+	key := "access_token:" + atJti
 
 	res, err := ts.db.Get(key).Result()
 	if len(res) == 0 {
@@ -67,11 +69,11 @@ func (ts *TokenStore) GetAtUserId(td *store.AccessDetail) (string, error) {
 		return "", err
 	}
 
-	return td.UserId, nil
+	return res, nil
 }
 
-func (ts *TokenStore) GetRtUserId(td *store.RefreshDetail) (string, error) {
-	key := "refresh_token:" + td.AccessJti
+func (ts *TokenStore) GetRtUserId(atJti string) (string, error) {
+	key := "refresh_token:" + atJti
 
 	res, err := ts.db.Get(key).Result()
 	if len(res) == 0 {
@@ -82,7 +84,7 @@ func (ts *TokenStore) GetRtUserId(td *store.RefreshDetail) (string, error) {
 		log.Error().Err(err).Msg(err.Error())
 		return "", err
 	}
-	return td.UserId, nil
+	return res, nil
 }
 
 func (ts *TokenStore) DeleteAtJti(atJti string) (int64, error) {
@@ -118,10 +120,6 @@ func (ts *TokenStore) GetEmailVarificationCode(uid string) (int, error) {
 	key := "code:" + uid
 	res, err := ts.db.Get(key).Result()
 
-	if len(res) == 0 {
-		return 0, errors.New("code is expired")
-	}
-
 	if err != nil {
 		log.Error().Err(err).Msg(err.Error())
 		return 0, err
@@ -148,12 +146,10 @@ func (ts *TokenStore) SetNewEmail(uid string, email string) error {
 func (ts *TokenStore) GetNewEmail(uid string) (string, error) {
 	key := "email:" + uid
 	res, err := ts.db.Get(key).Result()
+
 	if err != nil {
 		log.Error().Err(err).Msg(err.Error())
 		return "", err
-	}
-	if len(res) == 0 {
-		return "", errors.New("code is expired")
 	}
 
 	return res, nil

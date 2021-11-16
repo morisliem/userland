@@ -37,7 +37,7 @@ func TestLogin(t *testing.T) {
 				clientid: "",
 			},
 			statusCode: 422,
-			expected:   fmt.Sprintln(`{"Fields":{"X-Api-ClientId":"x-api-clientid is required","email":"email is required","password":"password is required"}}`),
+			expected:   fmt.Sprintln(`{"Fields":{"X-Api-ClientId":"X-Api-ClientId is required","email":"email is required","password":"password is required"}}`),
 		}, {
 			name: "good input",
 			input: loginReq{

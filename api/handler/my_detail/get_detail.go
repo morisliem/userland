@@ -1,6 +1,7 @@
 package mydetail
 
 import (
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"time"
@@ -31,9 +32,14 @@ func GetUserDetail(userStore store.UserStore, tokenStore store.TokenStore) http.
 
 		res, err := userStore.GetUserDetail(r.Context(), userId)
 		if err != nil {
+			if err == sql.ErrNoRows {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusNotFound)
+				json.NewEncoder(w).Encode(response.Response("unable to get user detail"))
+				return
+			}
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(response.Response(err.Error()))
 			return
 		}
 

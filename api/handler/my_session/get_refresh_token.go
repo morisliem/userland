@@ -26,7 +26,7 @@ func GetRefreshToken(userStore store.UserStore, tokenStore store.TokenStore) htt
 			return
 		}
 
-		atJti, rtJti, err := jwt.GetAtJtiNRtJtiFromAccessToken(r)
+		atJti, err := jwt.GetAtJtiFromAccessToken(r)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusUnauthorized)
@@ -34,7 +34,7 @@ func GetRefreshToken(userStore store.UserStore, tokenStore store.TokenStore) htt
 			return
 		}
 
-		res, err := jwt.GenerateRefreshToken(userId, atJti, rtJti, tokenStore)
+		res, err := jwt.GenerateRefreshToken(userId, atJti, tokenStore)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadRequest)
@@ -42,14 +42,12 @@ func GetRefreshToken(userStore store.UserStore, tokenStore store.TokenStore) htt
 			return
 		}
 
-		newToken := &GetRTResponse{
-			Value:      res.RefreshToken,
-			Expired_at: time.Unix(res.RtExpires, 0),
-			Type:       "jwt",
-		}
-
 		response := map[string]GetRTResponse{
-			"refresh_token": *newToken,
+			"refresh_token": {
+				Value:      res.RefreshToken,
+				Expired_at: time.Unix(res.RtExpires, 0),
+				Type:       "jwt",
+			},
 		}
 
 		w.Header().Set("Content-Type", "application/json")

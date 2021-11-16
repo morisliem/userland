@@ -2,7 +2,6 @@ package mysession
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"time"
 	"userland/api/helper"
@@ -27,7 +26,7 @@ func GetAccessToken(userStore store.UserStore, tokenStore store.TokenStore) http
 			return
 		}
 
-		atJti, rtJti, err := jwt.GetAtJtiNRtJtiFromRefreshToken(r)
+		atJti, err := jwt.GetAtJtiFromRefreshToken(r)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusUnauthorized)
@@ -35,8 +34,21 @@ func GetAccessToken(userStore store.UserStore, tokenStore store.TokenStore) http
 			return
 		}
 
-		// generated new access token by adding the current jwt id (access token) and adding refresh token jwt id
-		res, err := jwt.GenerateAccessToken(userId, atJti, rtJti, tokenStore)
+		deleted, err := jwt.DeleteATAuth(atJti, tokenStore)
+		if err != nil || deleted == 0 {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		deleted, err = jwt.DeleteRTAuth(atJti, tokenStore)
+		if err != nil || deleted == 0 {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		res, err := jwt.GenerateAccessToken(userId, tokenStore)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadRequest)
@@ -44,22 +56,19 @@ func GetAccessToken(userStore store.UserStore, tokenStore store.TokenStore) http
 			return
 		}
 
-		err = userStore.UpdateUserSession(r.Context(), atJti)
+		err = userStore.UpdateUserSession(r.Context(), atJti, res.AccessUuid)
 		if err != nil {
-			fmt.Println("here ;(")
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
-		newToken := &GetATResponse{
-			Value:      res.AccessToken,
-			Expired_at: time.Unix(res.AtExpires, 0),
-			Type:       "jwt",
-		}
-
 		response := map[string]GetATResponse{
-			"access_token": *newToken,
+			"access_token": {
+				Value:      res.AccessToken,
+				Expired_at: time.Unix(res.AtExpires, 0),
+				Type:       "jwt",
+			},
 		}
 
 		w.Header().Set("Content-Type", "application/json")

@@ -1,6 +1,7 @@
 package mydetail
 
 import (
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"os"
@@ -23,24 +24,28 @@ func DeleteUserProfilePicture(userStore store.UserStore, tokenStore store.TokenS
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(response.Response(err.Error()))
 			return
 		}
 
 		err = userStore.DeleteUserPicture(r.Context(), userId)
 		if err != nil {
+			if err == sql.ErrNoRows {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(response.Bad_request("unable to find user picture"))
+				return
+
+			}
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(response.Response(err.Error()))
 			return
 		}
 
 		// removing the file from img directory
-		err = os.Remove("./img/" + picName)
+		err = os.Remove("./data/img/" + picName)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(response.Response(err.Error()))
 			return
 		}
 

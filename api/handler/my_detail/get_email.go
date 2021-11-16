@@ -1,6 +1,7 @@
 package mydetail
 
 import (
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"userland/api/helper"
@@ -24,14 +25,19 @@ func GetUserEmail(userStore store.UserStore, tokenStore store.TokenStore) http.H
 
 		res, err := userStore.GetUserEmail(r.Context(), userId)
 		if err != nil {
+			if err == sql.ErrNoRows {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusNotFound)
+				json.NewEncoder(w).Encode(response.Response("unable to get user detail"))
+				return
+			}
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(response.Response(err.Error()))
 			return
 		}
 
 		emailResponse := &GetEmailResponse{
-			Email: res.Email,
+			Email: res,
 		}
 
 		w.Header().Set("Content-Type", "application/json")

@@ -4,20 +4,20 @@ import (
 	"net/http"
 )
 
-func GetAtJtiNRtJtiFromAccessToken(r *http.Request) (string, string, error) {
-	tokenAuth, err := ExtractAccessTokenMetadata(r)
+func GetAtJtiFromAccessToken(r *http.Request) (string, error) {
+	atJti, err := ExtractAccessTokenMetadata(r)
 	if err != nil {
-		return "", "", err
+		return "", err
 	}
 
-	return tokenAuth.AccessUuid, tokenAuth.RefreshJti, nil
+	return atJti, nil
 }
 
-func GetAtJtiNRtJtiFromRefreshToken(r *http.Request) (string, string, error) {
-	tokenAuth, err := ExtractRefreshTokenMetadata(r)
+func GetAtJtiFromRefreshToken(r *http.Request) (string, error) {
+	atJti, err := ExtractRefreshTokenMetadata(r)
 	if err != nil {
-		return "", "", err
+		return "", err
 	}
 
-	return tokenAuth.AccessJti, tokenAuth.RefreshUuid, nil
+	return atJti, nil
 }

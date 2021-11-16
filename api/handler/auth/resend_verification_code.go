@@ -4,19 +4,21 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 	"userland/api/helper"
 	"userland/api/response"
 	"userland/api/validator"
 	"userland/store"
 )
 
-type ForgetPasswordRequest struct {
-	Email string `json:"email"`
+type ResendVerCodeReq struct {
+	Type  string `json:"type"`
+	Email string `json:"recipient"`
 }
 
-func ForgetPassword(userStore store.UserStore, tokenStore store.TokenStore) http.HandlerFunc {
+func ResendVerCode(userStore store.UserStore, tokenStore store.TokenStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var request ForgetPasswordRequest
+		var request ResendVerCodeReq
 		err := json.NewDecoder(r.Body).Decode(&request)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
@@ -33,22 +35,23 @@ func ForgetPassword(userStore store.UserStore, tokenStore store.TokenStore) http
 			return
 		}
 
-		newRequest := store.User{
-			Email: request.Email,
-		}
-
-		err = userStore.EmailExist(r.Context(), newRequest.Email)
+		uid, err := userStore.GetUserId(r.Context(), request.Email)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(response.Response("email doens't exist"))
-			return
+			w.WriteHeader(http.StatusInternalServerError)
 		}
 
 		rn := helper.GenerateRandomNumber()
-		go helper.SendEmailResetPwdCode(newRequest.Email, rn)
+		go helper.SendEmailVerCode(request.Email, rn)
 
-		err = tokenStore.SetEmailVerificationCode(newRequest.Email, rn)
+		err = tokenStore.SetEmailVerificationCode(uid, rn)
+		if err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		err = tokenStore.SetNewEmail(uid, request.Email)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
@@ -61,12 +64,15 @@ func ForgetPassword(userStore store.UserStore, tokenStore store.TokenStore) http
 	}
 }
 
-func (fpr *ForgetPasswordRequest) ValidateRequest() (map[string]string, error) {
+func (r *ResendVerCodeReq) ValidateRequest() (map[string]string, error) {
 	res := map[string]string{}
+	emailErr := validator.ValidateEmail(r.Email)
+	if emailErr != nil {
+		res["email"] = emailErr.Error()
+	}
 
-	err := validator.ValidateEmail(fpr.Email)
-	if err != nil {
-		res["message"] = err.Error()
+	if len(strings.TrimSpace(r.Type)) == 0 {
+		res["type"] = "type is required"
 	}
 
 	if len(res) > 0 {
