@@ -47,7 +47,6 @@ func GetUserSession(userStore store.UserStore, tokenStore store.TokenStore) http
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(response.Response(err.Error()))
 			return
 		}
 

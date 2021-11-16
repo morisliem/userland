@@ -14,12 +14,6 @@ import (
 func GenerateAccessToken(userId string, atJti string, rtJti string, ts store.TokenStore) (store.TokenDetails, error) {
 	td := store.TokenDetails{}
 	atDuration, _ := strconv.Atoi(os.Getenv("ACCESS_TOKEN_DURATION"))
-	td.AtExpires = time.Now().Add(time.Minute * time.Duration(atDuration)).Unix()
-	accessUuid, _ := uuid.NewV4()
-	td.AccessUuid = fmt.Sprintf("%v", accessUuid)
-
-	refresh_jti, _ := uuid.NewV4()
-	td.RefreshUuid = fmt.Sprintf("%v", refresh_jti)
 
 	var err error
 
@@ -27,13 +21,22 @@ func GenerateAccessToken(userId string, atJti string, rtJti string, ts store.Tok
 	atClaims["user_id"] = userId
 
 	if atJti == "" {
+		td.AtExpires = time.Now().Add(time.Minute * time.Duration(atDuration)).Unix()
+		accessUuid, _ := uuid.NewV4()
+		td.AccessUuid = fmt.Sprintf("%v", accessUuid)
 		atClaims["access_uuid"] = td.AccessUuid
+
 	} else {
+		td.AtExpires = time.Now().Add(time.Minute * time.Duration(atDuration)).Unix()
+		td.AccessUuid = atJti
 		atClaims["access_uuid"] = atJti
 	}
 
 	if rtJti == "" {
+		refresh_jti, _ := uuid.NewV4()
+		td.RefreshUuid = fmt.Sprintf("%v", refresh_jti)
 		atClaims["refresh_jti"] = td.RefreshUuid
+
 	} else {
 		atClaims["refresh_jti"] = rtJti
 	}

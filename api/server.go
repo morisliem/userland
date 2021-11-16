@@ -110,6 +110,7 @@ func (s *Server) initStores() error {
 func (s *Server) createHandlers() http.Handler {
 	r := chi.NewRouter()
 	r.Post("/auth/register", auth.Register(s.stores.userStore, s.stores.tokenStore))
+	r.Post("/auth/verification", auth.ResendVerCode(s.stores.userStore, s.stores.tokenStore))
 	r.Post("/auth/register/validate", auth.ValidateEmail(s.stores.userStore, s.stores.tokenStore))
 	r.Post("/auth/login", auth.Login(s.stores.userStore, s.stores.tokenStore, s.Kafka))
 	r.Post("/auth/password/forget", auth.ForgetPassword(s.stores.userStore, s.stores.tokenStore))

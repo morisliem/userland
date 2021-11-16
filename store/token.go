@@ -30,7 +30,7 @@ type TokenStore interface {
 	GetEmailVarificationCode(uid string) (int, error)
 	SetNewEmail(uid string, email string) error
 	GetNewEmail(uid string) (string, error)
-	DeleteAtJti(uid string) (int64, error)
-	DeleteRtJti(uid string) (int64, error)
+	DeleteAtJti(atJti string) (int64, error)
+	DeleteRtJti(atJti string) (int64, error)
 	HasRefreshToken(jti string) (bool, error)
 }

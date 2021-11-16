@@ -24,7 +24,6 @@ func ExtractToken(r *http.Request) string {
 func ExtractAccessTokenMetadata(r *http.Request) (*store.AccessDetail, error) {
 	tkn := ExtractToken(r)
 
-	// This part is used to verify the token
 	token, err := jwt.Parse(tkn, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method : %v", token.Header["alg"])
@@ -56,7 +55,6 @@ func ExtractAccessTokenMetadata(r *http.Request) (*store.AccessDetail, error) {
 func ExtractRefreshTokenMetadata(r *http.Request) (*store.RefreshDetail, error) {
 	tkn := ExtractToken(r)
 
-	// This part is used to verify the token
 	token, err := jwt.Parse(tkn, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method : %v", token.Header["alg"])

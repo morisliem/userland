@@ -70,8 +70,7 @@ func ChangeUserPassword(userStore store.UserStore, tokenStore store.TokenStore) 
 		hashPassword, err := helper.HashPassword(request.Password)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(response.Bad_request(err.Error()))
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
@@ -83,12 +82,11 @@ func ChangeUserPassword(userStore store.UserStore, tokenStore store.TokenStore) 
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(response.Response(err.Error()))
 			return
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusCreated)
+		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(response.Success())
 
 	}

@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -29,7 +30,7 @@ func ValidateEmail(userStore store.UserStore, tokenStore store.TokenStore) http.
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(response.Response(err.Error()))
+			json.NewEncoder(w).Encode(response.Bad_request(err.Error()))
 			return
 		}
 
@@ -46,27 +47,42 @@ func ValidateEmail(userStore store.UserStore, tokenStore store.TokenStore) http.
 			VerCode: request.Code,
 		}
 
-		err = userStore.EmailExist(ctx, newValidateEmail)
+		err = userStore.EmailExist(ctx, newValidateEmail.Email)
 		if err != nil {
+			if err == sql.ErrNoRows {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(response.Bad_request("unable to find email"))
+				return
+			}
 			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(response.Bad_request(err.Error()))
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
-		uid, err := userStore.GetUserid(ctx, newValidateEmail.Email)
+		uid, err := userStore.GetUserId(ctx, newValidateEmail.Email)
 		if err != nil {
+			if err == sql.ErrNoRows {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(response.Bad_request("unable to find user"))
+				return
+			}
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(response.Response(err.Error()))
 			return
 		}
 
 		code, err := tokenStore.GetEmailVarificationCode(uid)
 		if err != nil {
+			if err.Error() == "redis: nil" {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(response.Bad_request("code is expired"))
+				return
+			}
 			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(response.Bad_request(err.Error()))
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
@@ -81,9 +97,14 @@ func ValidateEmail(userStore store.UserStore, tokenStore store.TokenStore) http.
 
 		email, err := tokenStore.GetNewEmail(uid)
 		if err != nil {
+			if err.Error() == "redis: nil" {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(response.Bad_request("failed to store new email"))
+				return
+			}
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(response.Response(err.Error()))
 			return
 		}
 
@@ -94,12 +115,11 @@ func ValidateEmail(userStore store.UserStore, tokenStore store.TokenStore) http.
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(response.Response(err.Error()))
 			return
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusCreated)
+		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(response.Success())
 
 	}

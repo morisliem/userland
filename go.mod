@@ -13,5 +13,6 @@ require (
 	github.com/onsi/gomega v1.16.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/rs/zerolog v1.15.0
+	github.com/stretchr/testify v1.7.0
 	golang.org/x/crypto v0.0.0-20210711020723-a769d52b0f97
 )

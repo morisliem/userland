@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -50,9 +51,15 @@ func Login(userStore store.UserStore, tokenStore store.TokenStore, kafka broker.
 
 		is_active, err := userStore.EmailActive(ctx, newLogin)
 		if err != nil {
+			if err == sql.ErrNoRows {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(response.Bad_request("unable to find user"))
+				return
+			}
+
 			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(response.Response(err.Error()))
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
@@ -63,11 +70,36 @@ func Login(userStore store.UserStore, tokenStore store.TokenStore, kafka broker.
 			return
 		}
 
-		userId, err := userStore.GetUserId(ctx, newLogin)
+		pwd, err := userStore.GetPasswordFromEmail(ctx, newLogin.Email)
 		if err != nil {
+			if err == sql.ErrNoRows {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(response.Bad_request("unable to find user"))
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		if !helper.ComparePasswordHash(newLogin.Password, pwd) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(response.Response(err.Error()))
+			json.NewEncoder(w).Encode(response.Bad_request("password incorrect"))
+			return
+		}
+
+		userId, err := userStore.GetUserId(ctx, newLogin.Email)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(response.Bad_request("unable to find user"))
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
@@ -75,7 +107,7 @@ func Login(userStore store.UserStore, tokenStore store.TokenStore, kafka broker.
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(response.Response(err.Error()))
+			json.NewEncoder(w).Encode(response.Bad_request(err.Error()))
 			return
 		}
 
@@ -83,7 +115,7 @@ func Login(userStore store.UserStore, tokenStore store.TokenStore, kafka broker.
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(response.Response(err.Error()))
+			json.NewEncoder(w).Encode(response.Bad_request(err.Error()))
 			return
 		}
 

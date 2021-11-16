@@ -23,7 +23,14 @@ func Register(userStore store.UserStore, tokenStore store.TokenStore) http.Handl
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request RegisterRequest
 		ctx := r.Context()
-		json.NewDecoder(r.Body).Decode(&request)
+		err := json.NewDecoder(r.Body).Decode(&request)
+
+		if err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(response.Bad_request(err.Error()))
+			return
+		}
 
 		// Validate the request
 		res, err := request.ValidateRequest()
@@ -38,7 +45,6 @@ func Register(userStore store.UserStore, tokenStore store.TokenStore) http.Handl
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(response.Response(err.Error()))
 			return
 		}
 
@@ -46,7 +52,6 @@ func Register(userStore store.UserStore, tokenStore store.TokenStore) http.Handl
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(response.Response(err.Error()))
 			return
 		}
 
@@ -57,12 +62,20 @@ func Register(userStore store.UserStore, tokenStore store.TokenStore) http.Handl
 			Password: hashPassword,
 		}
 		rn := helper.GenerateRandomNumber()
+		// rn := 123
 
-		err = userStore.RegisterUser(ctx, newRegister, rn)
+		err = userStore.EmailExist(ctx, newRegister.Email)
+		if err == nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(response.Bad_request("email is used"))
+			return
+		}
+
+		err = userStore.RegisterUser(ctx, newRegister)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(response.Response(err.Error()))
 			return
 		}
 

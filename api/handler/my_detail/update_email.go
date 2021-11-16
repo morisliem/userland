@@ -1,6 +1,7 @@
 package mydetail
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -62,7 +63,6 @@ func UpdateUserEmail(userStore store.UserStore, tokenStore store.TokenStore) htt
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(response.Response(err.Error()))
 			return
 		}
 
@@ -70,7 +70,6 @@ func UpdateUserEmail(userStore store.UserStore, tokenStore store.TokenStore) htt
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(response.Response(err.Error()))
 			return
 		}
 
@@ -99,6 +98,47 @@ func UpdateUserEmail(userStore store.UserStore, tokenStore store.TokenStore) htt
 			}
 		}
 
+		// Remove the other session as well
+		listOfSid, err := userStore.GetSessionsId(r.Context(), userId)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(response.Bad_request("unable to get session id"))
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		for _, v := range listOfSid {
+			if v != atJti {
+				deleted, err := jwt.DeleteATAuth(v, tokenStore)
+				if err != nil || deleted == 0 {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
+
+				itHas, err := tokenStore.HasRefreshToken(v)
+				if err != nil {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
+
+				if itHas {
+					deleted, err = jwt.DeleteRTAuth(v, tokenStore)
+					if err != nil || deleted == 0 {
+						w.Header().Set("Content-Type", "application/json")
+						w.WriteHeader(http.StatusInternalServerError)
+						return
+					}
+				}
+			}
+		}
+
 		err = userStore.DeleteCurrentSession(r.Context(), atJti)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
@@ -106,8 +146,15 @@ func UpdateUserEmail(userStore store.UserStore, tokenStore store.TokenStore) htt
 			return
 		}
 
+		err = userStore.DeleteOtherSession(r.Context(), userId, atJti)
+		if err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
 		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusCreated)
+		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(response.Success())
 	}
 }

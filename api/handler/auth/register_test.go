@@ -1,155 +1,95 @@
 package auth
 
-import (
-	"bytes"
-	"encoding/json"
-	"fmt"
-	"net/http"
-	"net/http/httptest"
-	"testing"
-	"userland/api/helper"
-	"userland/api/response"
-	"userland/store"
+// import (
+// 	"bytes"
+// 	"context"
+// 	"encoding/json"
+// 	"fmt"
+// 	"net/http"
+// 	"net/http/httptest"
+// 	"testing"
+// 	"userland/store"
 
-	"github.com/gofrs/uuid"
-)
+// 	"github.com/stretchr/testify/assert"
+// )
 
-type registerReq struct {
-	fullname         string
-	email            string
-	password         string
-	confirm_password string
-}
+// type registerReq struct {
+// 	fullname         string
+// 	email            string
+// 	password         string
+// 	confirm_password string
+// }
 
-func TestRegister(t *testing.T) {
-	tt := []struct {
-		name       string
-		input      registerReq
-		statusCode int
-		expected   string
-	}{
-		{
-			name: "password syntex error",
-			input: registerReq{
-				fullname:         "moris",
-				email:            "moris@gmail.com",
-				password:         "abcde123",
-				confirm_password: "abcde123",
-			},
-			statusCode: 422,
-			expected:   fmt.Sprintln(`{"Fields":{"password":"password must have a uppercase character"}}`),
-		},
-		{
-			name: "good request",
-			input: registerReq{
-				fullname:         "moris",
-				email:            "moris@gmail.com",
-				password:         "123abcdE",
-				confirm_password: "123abcdE",
-			},
-			statusCode: 201,
-		},
-		{
-			name: "unmatch password",
-			input: registerReq{
-				fullname:         "moris",
-				email:            "moris@gmail.com",
-				password:         "123abcdP",
-				confirm_password: "123abcdE",
-			},
-			statusCode: 422,
-			expected:   fmt.Sprintln(`{"Fields":{"unmatch_password":"check again your password"}}`),
-		},
-		{
-			name: "empty input",
-			input: registerReq{
-				fullname:         "",
-				email:            "",
-				password:         "",
-				confirm_password: "",
-			},
-			statusCode: 422,
-			expected:   fmt.Sprintln(`{"Fields":{"email":"email is required","fullname":"fullname is required","password":"password is required"}}`)},
-	}
+// func TestRegister(t *testing.T) {
+// 	tt := []struct {
+// 		name       string
+// 		input      registerReq
+// 		statusCode int
+// 		expected   string
+// 	}{
+// 		{
+// 			name: "empty input",
+// 			input: registerReq{
+// 				fullname:         "",
+// 				email:            "",
+// 				password:         "",
+// 				confirm_password: "",
+// 			},
+// 			statusCode: 422,
+// 			expected:   fmt.Sprintln(`{"Fields":{"email":"email is required","fullname":"fullname is required"}}`),
+// 		},
+// 		{
+// 			name: "good request",
+// 			input: registerReq{
+// 				fullname:         "moris",
+// 				email:            "moris@gmail.com",
+// 				password:         "123abcdE",
+// 				confirm_password: "123abcdE",
+// 			},
+// 			statusCode: 201,
+// 		},
+// 	}
 
-	handler := func(w http.ResponseWriter, r *http.Request) {
-		// var userStore store.UserStore
-		// var tokenStore store.TokenStore
-		var request RegisterRequest
-		// ctx := r.Context()
-		json.NewDecoder(r.Body).Decode(&request)
+// 	mockUserStore := new(store.MockUserStore)
+// 	mockTokenStore := new(store.MockTokenStore)
 
-		// Validate the request
-		res, err := request.ValidateRequest()
-		if err != nil {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusUnprocessableEntity)
-			json.NewEncoder(w).Encode(response.UnproccesableEntity(res))
-			return
-		}
+// 	for _, tc := range tt {
+// 		t.Run(tc.name, func(t *testing.T) {
+// 			rBody, err := json.Marshal(map[string]string{
+// 				"fullname":         tc.input.fullname,
+// 				"email":            tc.input.email,
+// 				"Password":         "tc.input.passwordD1",
+// 				"Confirm_password": "tc.input.passwordD1",
+// 			})
 
-		hashPassword, err := helper.HashPassword(request.Password)
-		if err != nil {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(response.Response(err.Error()))
-			return
-		}
+// 			if err != nil {
+// 				t.Errorf("failed %v", err)
+// 			}
 
-		userId, err := uuid.NewV4()
-		if err != nil {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(response.Response(err.Error()))
-			return
-		}
+// 			r, err := http.NewRequest("POST", "localhost:8080/auth/register", bytes.NewBuffer(rBody))
 
-		newRegister := store.User{
-			Id:       userId.String(),
-			Fullname: request.Fullname,
-			Email:    request.Email,
-			Password: hashPassword,
-		}
-		rn := helper.GenerateRandomNumber()
+// 			if err != nil {
+// 				t.Errorf("failed %v", err)
+// 			}
 
-		go helper.SendEmailVerCode(newRegister.Email, rn)
+// 			w := httptest.NewRecorder()
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusCreated)
-	}
+// 			newUser := store.User{
+// 				Id:       "tc.input",
+// 				Fullname: tc.input.fullname,
+// 				Email:    tc.input.email,
+// 				Password: "tc.input.passwordD1",
+// 			}
 
-	for _, tc := range tt {
-		t.Run(tc.name, func(t *testing.T) {
+// 			mockUserStore.On("RegisterUser", context.Background(), newUser, 123).Return(nil)
+// 			mockTokenStore.On("SetEmailVerificationCode", "tc.input", 123).Return(nil)
+// 			mockTokenStore.On("SetNewEmail", "tc.input", tc.input.email).Return(nil)
 
-			rBody, err := json.Marshal(map[string]string{
-				"fullname":         tc.input.fullname,
-				"email":            tc.input.email,
-				"Password":         tc.input.password,
-				"Confirm_password": tc.input.confirm_password,
-			})
+// 			Register(mockUserStore, mockTokenStore).ServeHTTP(w, r)
 
-			if err != nil {
-				t.Errorf("failed %v", err)
-			}
+// 			assert.Equal(t, w.Code, tc.statusCode)
+// 			assert.Equal(t, w.Body.String(), tc.expected)
 
-			r, err := http.NewRequest("POST", "localhost:8080/auth/register", bytes.NewBuffer(rBody))
-
-			if err != nil {
-				t.Errorf("failed %v", err)
-			}
-
-			w := httptest.NewRecorder()
-
-			handler(w, r)
-
-			if w.Code != tc.statusCode {
-				t.Errorf("expected %d, got %d", tc.statusCode, w.Code)
-			}
-
-			if w.Body.String() != tc.expected {
-				t.Errorf("expected %s, got %s", tc.expected, w.Body.String())
-			}
-
-		})
-	}
-}
+// 		})
+// 	}
+// }

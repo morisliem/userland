@@ -1,8 +1,8 @@
 package mysession
 
 import (
+	"database/sql"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"userland/api/helper"
 	"userland/api/jwt"
@@ -10,7 +10,6 @@ import (
 	"userland/store"
 )
 
-// Unable to remove jwt refresh token because i just store the jwt id for access token in the db
 func DeleteOtherSession(userStore store.UserStore, tokenStore store.TokenStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userId, err := helper.AuthenticateUserAccessToken(r, tokenStore)
@@ -21,7 +20,6 @@ func DeleteOtherSession(userStore store.UserStore, tokenStore store.TokenStore) 
 			return
 		}
 
-		// getting the jwt id for access token
 		atJti, _, err := jwt.GetAtJtiNRtJtiFromAccessToken(r)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
@@ -30,26 +28,28 @@ func DeleteOtherSession(userStore store.UserStore, tokenStore store.TokenStore) 
 			return
 		}
 
-		// getting the list of session id
 		listOfSid, err := userStore.GetSessionsId(r.Context(), userId)
 		if err != nil {
+			if err == sql.ErrNoRows {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(response.Bad_request("unable to get session id"))
+				return
+			}
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
-		// removing all the jwt access token in the redis except the current jwt id
 		for _, v := range listOfSid {
 			if v != atJti {
 				deleted, err := jwt.DeleteATAuth(v, tokenStore)
 				if err != nil || deleted == 0 {
 					w.Header().Set("Content-Type", "application/json")
 					w.WriteHeader(http.StatusInternalServerError)
-					fmt.Println("1")
 					return
 				}
 
-				// checking if the session has refresh token id
 				itHas, err := tokenStore.HasRefreshToken(v)
 				if err != nil {
 					w.Header().Set("Content-Type", "application/json")

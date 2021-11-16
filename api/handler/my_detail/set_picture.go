@@ -29,8 +29,7 @@ func SetUserPicture(userStore store.UserStore, tokenStore store.TokenStore) http
 		file, _, err := r.FormFile("picture")
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(response.Bad_request(err.Error()))
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 		defer file.Close()
@@ -38,18 +37,16 @@ func SetUserPicture(userStore store.UserStore, tokenStore store.TokenStore) http
 		fileBytes, err := ioutil.ReadAll(file)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(response.Bad_request(err.Error()))
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
 		fileName := fmt.Sprintf("%v", userId) + ".png"
 
-		err = ioutil.WriteFile("./img/"+fileName, fileBytes, 0777)
+		err = ioutil.WriteFile("./data/img/"+fileName, fileBytes, 0777)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(response.Bad_request(err.Error()))
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
@@ -57,12 +54,11 @@ func SetUserPicture(userStore store.UserStore, tokenStore store.TokenStore) http
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(response.Response(err.Error()))
 			return
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusCreated)
+		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(response.Success())
 
 	}

@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"time"
-	"userland/api/helper"
 	"userland/store"
 
 	"github.com/rs/zerolog/log"
@@ -28,14 +27,12 @@ func (us *UserStore) UpdatePassword(ctx context.Context, uid string, u store.Use
 		log.Error().Err(err).Msg("failed to begin transaction")
 		return errors.New("failed to update password")
 	}
-	defer tx.Rollback()
 	defer func() {
 		if rollBackErr := tx.Rollback(); rollBackErr == nil {
 			log.Error().Err(err).Msg("rolling back changes")
 		}
 	}()
 
-	// Updating user password
 	var updatePassword *sql.Stmt
 	updatePassword, err = tx.Prepare("UPDATE person SET Password = $1 WHERE id = $2")
 	if err != nil {
@@ -46,7 +43,6 @@ func (us *UserStore) UpdatePassword(ctx context.Context, uid string, u store.Use
 
 	var result sql.Result
 	result, err = updatePassword.Exec(u.Password, uid)
-
 	rowsAff, _ := result.RowsAffected()
 
 	if err != nil || rowsAff != 1 {
@@ -54,7 +50,6 @@ func (us *UserStore) UpdatePassword(ctx context.Context, uid string, u store.Use
 		return errors.New("failed to update password")
 	}
 
-	// Adding new password to user_password table
 	var insertNewPassword *sql.Stmt
 	insertNewPassword, err = tx.Prepare(`INSERT INTO user_password (id, password, created_at) values ($1, $2, $3)`)
 	if err != nil {
@@ -64,7 +59,6 @@ func (us *UserStore) UpdatePassword(ctx context.Context, uid string, u store.Use
 	defer insertNewPassword.Close()
 
 	result, err = insertNewPassword.Exec(uid, u.Password, time.Now())
-
 	rowsAff, _ = result.RowsAffected()
 
 	if err != nil || rowsAff != 1 {
@@ -81,37 +75,23 @@ func (us *UserStore) UpdatePassword(ctx context.Context, uid string, u store.Use
 	return nil
 }
 
-func (us *UserStore) GetUserId(ctx context.Context, u store.User) (string, error) {
-	psqlStatement := `SELECT id, password FROM PERSON WHERE EMAIL = $1`
-
-	res := us.db.QueryRowContext(ctx, psqlStatement, u.Email)
-	var id string
-	var password string
-
-	err := res.Scan(&id, &password)
-
-	if err != nil {
-		log.Error().Err(err).Msg(err.Error())
-		return "", errors.New("unable to find the user")
-	}
-	if !helper.ComparePasswordHash(u.Password, password) {
-		log.Error().Err(err).Msg("password incorrect")
-		return "", errors.New("password incorrect")
-	}
-	return id, nil
-}
-
-func (us *UserStore) GetUserid(ctx context.Context, email string) (string, error) {
+func (us *UserStore) GetUserId(ctx context.Context, email string) (string, error) {
 	psqlStatement := `SELECT id FROM PERSON WHERE EMAIL = $1`
 
 	res := us.db.QueryRowContext(ctx, psqlStatement, email)
-	var userId string
+	var id string
 
-	err := res.Scan(&userId)
+	err := res.Scan(&id)
+
 	if err != nil {
-		return "", errors.New("unable to find the user")
+		if err == sql.ErrNoRows {
+			log.Error().Err(err).Msg(err.Error())
+			return "", sql.ErrNoRows
+		}
+		log.Error().Err(err).Msg(err.Error())
+		return "", sql.ErrConnDone
 	}
-	return userId, nil
+	return id, nil
 }
 
 func (us *UserStore) GetUserCode(ctx context.Context, u store.User) (int, error) {
@@ -123,7 +103,7 @@ func (us *UserStore) GetUserCode(ctx context.Context, u store.User) (int, error)
 	err := res.Scan(&code)
 
 	if err != nil {
-		log.Error().Err(err).Msg(err.Error())
+		log.Error().Err(err).Msg("unable to get user code")
 		return 0, errors.New("unable to find the user")
 	}
 	return code, nil
@@ -138,10 +118,33 @@ func (us *UserStore) EmailActive(ctx context.Context, u store.User) (bool, error
 	err := res.Scan(&is_active)
 
 	if err != nil {
+		if err == sql.ErrNoRows {
+			log.Error().Err(err).Msg("unable to check email activation")
+			return false, sql.ErrNoRows
+
+		}
 		log.Error().Err(err).Msg(err.Error())
-		return false, errors.New("unable to find the user")
+		return false, sql.ErrConnDone
 	}
 	return is_active, nil
+}
+
+func (us *UserStore) GetPasswordFromEmail(ctx context.Context, email string) (string, error) {
+	getPasswordStatement := `SELECT password from PERSON where email = $1`
+	res := us.db.QueryRowContext(ctx, getPasswordStatement, email)
+	var password string
+
+	err := res.Scan(&password)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			log.Error().Err(err).Msg("unable to get password")
+			return "", sql.ErrNoRows
+		}
+		log.Error().Err(err).Msg(err.Error())
+		return "", sql.ErrConnDone
+	}
+
+	return password, nil
 }
 
 func (us *UserStore) GetPassword(ctx context.Context, uid string) (string, error) {
@@ -184,22 +187,25 @@ func (us *UserStore) GetPasswords(ctx context.Context, uid string) ([]string, er
 	return pwd, nil
 }
 
-func (us *UserStore) EmailExist(ctx context.Context, u store.User) error {
+func (us *UserStore) EmailExist(ctx context.Context, email string) error {
 	psqlStatement := `SELECT email FROM PERSON WHERE EMAIL = $1`
 
-	res := us.db.QueryRowContext(ctx, psqlStatement, u.Email)
-	var email string
+	res := us.db.QueryRowContext(ctx, psqlStatement, email)
+	var tmp string
 
-	err := res.Scan(&email)
+	err := res.Scan(&tmp)
 
 	if err != nil {
-		return errors.New("unable to find the user")
-	} else {
-		return nil
+		if err == sql.ErrNoRows {
+			return sql.ErrNoRows
+		}
+		log.Error().Err(err).Msg(err.Error())
+		return sql.ErrConnDone
 	}
+	return nil
 }
 
-func (us *UserStore) RegisterUser(ctx context.Context, u store.User, rn int) error {
+func (us *UserStore) RegisterUser(ctx context.Context, u store.User) error {
 	var tx *sql.Tx
 	tx, err := us.db.Begin()
 
@@ -207,16 +213,11 @@ func (us *UserStore) RegisterUser(ctx context.Context, u store.User, rn int) err
 		log.Error().Err(err).Msg("failed to begin transaction")
 		return errors.New("failed to register user")
 	}
-	defer tx.Rollback()
 	defer func() {
 		if rollBackErr := tx.Rollback(); rollBackErr == nil {
 			log.Error().Err(err).Msg("rolling back changes")
 		}
 	}()
-
-	if us.EmailExist(ctx, u) == nil {
-		return errors.New("email is used")
-	}
 
 	// Prepare statement for inserting new user
 	var inserUserStmt *sql.Stmt
@@ -273,7 +274,6 @@ func (us *UserStore) ValidateCode(ctx context.Context, u store.User) error {
 		log.Error().Err(err).Msg("failed to begin transaction")
 		return errors.New("failed to update password")
 	}
-	defer tx.Rollback()
 	defer func() {
 		if rollBackErr := tx.Rollback(); rollBackErr == nil {
 			log.Error().Err(err).Msg("rolling back changes")
@@ -322,8 +322,12 @@ func (us *UserStore) GetUserDetail(ctx context.Context, uid string) (store.User,
 
 	err := res.Scan(&id, &fullname, &email, &password, &location, &bio, &web, &picture, &created_at, &is_active)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			log.Error().Err(err).Msg("unable to get user detail")
+			return response, sql.ErrNoRows
+		}
 		log.Error().Err(err).Msg(err.Error())
-		return response, errors.New("unable to find the user")
+		return response, sql.ErrConnDone
 	}
 
 	loc := ""
@@ -340,8 +344,12 @@ func (us *UserStore) GetUserDetail(ctx context.Context, uid string) (store.User,
 		var tmp string
 		err := us.db.QueryRowContext(ctx, `SELECT location from PERSON where id = $1`, id).Scan(&tmp)
 		if err != nil {
+			if err == sql.ErrNoRows {
+				log.Error().Err(err).Msg("unable to get user detail")
+				return response, sql.ErrNoRows
+			}
 			log.Error().Err(err).Msg(err.Error())
-			return response, errors.New("unable to find the user")
+			return response, sql.ErrConnDone
 		}
 		response.Location = tmp
 	}
@@ -352,8 +360,12 @@ func (us *UserStore) GetUserDetail(ctx context.Context, uid string) (store.User,
 		var tmp string
 		err := us.db.QueryRowContext(ctx, `SELECT bio from PERSON where id = $1`, id).Scan(&tmp)
 		if err != nil {
+			if err == sql.ErrNoRows {
+				log.Error().Err(err).Msg("unable to get user detail")
+				return response, sql.ErrNoRows
+			}
 			log.Error().Err(err).Msg(err.Error())
-			return response, errors.New("unable to find the user")
+			return response, sql.ErrConnDone
 		}
 		response.Bio = tmp
 	}
@@ -364,8 +376,12 @@ func (us *UserStore) GetUserDetail(ctx context.Context, uid string) (store.User,
 		var tmp string
 		err := us.db.QueryRowContext(ctx, `SELECT web from PERSON where id = $1`, id).Scan(&tmp)
 		if err != nil {
+			if err == sql.ErrNoRows {
+				log.Error().Err(err).Msg("unable to get user detail")
+				return response, sql.ErrNoRows
+			}
 			log.Error().Err(err).Msg(err.Error())
-			return response, errors.New("unable to find the user")
+			return response, sql.ErrConnDone
 		}
 		response.Web = tmp
 	}
@@ -376,8 +392,12 @@ func (us *UserStore) GetUserDetail(ctx context.Context, uid string) (store.User,
 		var tmp string
 		err := us.db.QueryRowContext(ctx, `SELECT picture from PERSON where id = $1`, id).Scan(&tmp)
 		if err != nil {
+			if err == sql.ErrNoRows {
+				log.Error().Err(err).Msg("unable to get user detail")
+				return response, sql.ErrNoRows
+			}
 			log.Error().Err(err).Msg(err.Error())
-			return response, errors.New("unable to find the user")
+			return response, sql.ErrConnDone
 		}
 		response.Picture = tmp
 	}
@@ -394,7 +414,6 @@ func (us *UserStore) UpdateUserDetail(ctx context.Context, u store.User, uid str
 		log.Error().Err(err).Msg("failed to begin transaction")
 		return errors.New("failed to update user detail")
 	}
-	defer tx.Rollback()
 	defer func() {
 		if rollBackErr := tx.Rollback(); rollBackErr == nil {
 			log.Error().Err(err).Msg("rolling back changes")
@@ -431,20 +450,20 @@ func (us *UserStore) UpdateUserDetail(ctx context.Context, u store.User, uid str
 	return nil
 }
 
-func (us *UserStore) GetUserEmail(ctx context.Context, uid string) (store.User, error) {
+func (us *UserStore) GetUserEmail(ctx context.Context, uid string) (string, error) {
 	var email string
-	var response store.User
 	psqlstatement := `SELECT email FROM person WHERE id = $1`
 
 	err := us.db.QueryRowContext(ctx, psqlstatement, uid).Scan(&email)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			log.Error().Err(err).Msg("unable to find the user email")
+			return "", sql.ErrNoRows
+		}
 		log.Error().Err(err).Msg(err.Error())
-		return response, errors.New("unable to find the user")
+		return "", sql.ErrConnDone
 	}
-
-	response.Email = email
-
-	return response, nil
+	return email, nil
 }
 
 func (us *UserStore) DeleteAccount(ctx context.Context, uid string) error {
@@ -455,7 +474,6 @@ func (us *UserStore) DeleteAccount(ctx context.Context, uid string) error {
 		log.Error().Err(err).Msg("failed to begin transaction")
 		return errors.New("failed to delete account")
 	}
-	defer tx.Rollback()
 	defer func() {
 		if rollBackErr := tx.Rollback(); rollBackErr == nil {
 			log.Error().Err(err).Msg("rolling back changes")
@@ -494,8 +512,12 @@ func (us *UserStore) GetUserProfilePicture(ctx context.Context, uid string) (str
 	var pictureName string
 	err := res.Scan(&pictureName)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			log.Error().Err(err).Msg("unable to get user picture")
+			return "", sql.ErrNoRows
+		}
 		log.Error().Err(err).Msg(err.Error())
-		return "", errors.New("failed to get user picture")
+		return "", sql.ErrConnDone
 	}
 
 	return pictureName, nil
@@ -510,7 +532,6 @@ func (us *UserStore) DeleteUserPicture(ctx context.Context, uid string) error {
 		return errors.New("failed to remove user picture")
 	}
 
-	defer tx.Rollback()
 	defer func() {
 		if rollBackErr := tx.Rollback(); rollBackErr == nil {
 			log.Error().Err(err).Msg("rolling back changes")
@@ -551,7 +572,6 @@ func (us *UserStore) SetUserPicture(ctx context.Context, uid string, pict string
 		return errors.New("failed to add user picture")
 	}
 
-	defer tx.Rollback()
 	defer func() {
 		if rollBackErr := tx.Rollback(); rollBackErr == nil {
 			log.Error().Err(err).Msg("rolling back changes")
@@ -592,7 +612,6 @@ func (us *UserStore) SetUserSession(ctx context.Context, t store.TokenDetails, u
 		return errors.New("failed to set user session")
 	}
 
-	defer tx.Rollback()
 	defer func() {
 		if rollBackErr := tx.Rollback(); rollBackErr == nil {
 			log.Error().Err(err).Msg("rolling back changes")
@@ -692,7 +711,6 @@ func (us *UserStore) UpdateUserSession(ctx context.Context, sessionId string) er
 		return errors.New("failed to update session")
 	}
 
-	defer tx.Rollback()
 	defer func() {
 		if rollBackErr := tx.Rollback(); rollBackErr == nil {
 			log.Error().Err(err).Msg("rolling back changes")
@@ -733,7 +751,6 @@ func (us *UserStore) DeleteCurrentSession(ctx context.Context, sessionId string)
 		return errors.New("failed to delete current session")
 	}
 
-	defer tx.Rollback()
 	defer func() {
 		if rollBackErr := tx.Rollback(); rollBackErr == nil {
 			log.Error().Err(err).Msg("rolling back changes")
@@ -774,7 +791,6 @@ func (us *UserStore) DeleteOtherSession(ctx context.Context, uid string, sid str
 		return errors.New("failed to delete other session")
 	}
 
-	defer tx.Rollback()
 	defer func() {
 		if rollBackErr := tx.Rollback(); rollBackErr == nil {
 			log.Error().Err(err).Msg("rolling back changes")
@@ -813,8 +829,12 @@ func (us *UserStore) GetSessionsId(ctx context.Context, uid string) ([]string, e
 	res, err := us.db.QueryContext(ctx, psqlStatement, uid)
 
 	if err != nil {
+		if err == sql.ErrNoRows {
+			log.Error().Err(err).Msg("unable to find session id")
+			return nil, sql.ErrNoRows
+		}
 		log.Error().Err(err).Msg(err.Error())
-		return nil, errors.New("unable to find session id")
+		return nil, sql.ErrConnDone
 	}
 
 	defer res.Close()

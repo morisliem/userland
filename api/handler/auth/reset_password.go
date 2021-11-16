@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -40,24 +41,34 @@ func ResetPassword(userStore store.UserStore, tokenStore store.TokenStore) http.
 
 		code, err := tokenStore.GetEmailVarificationCode(request.Email)
 		if err != nil {
+			if err.Error() == "redis: nil" {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(response.Bad_request("code is expired"))
+				return
+			}
 			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusUnauthorized)
-			json.NewEncoder(w).Encode(response.Unautorized_request(err.Error()))
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
 		if code != request.Code {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(response.Response("invalid code"))
+			json.NewEncoder(w).Encode(response.Response("code is not match"))
 			return
 		}
 
-		userId, err := userStore.GetUserid(ctx, request.Email)
+		userId, err := userStore.GetUserId(ctx, request.Email)
 		if err != nil {
+			if err == sql.ErrNoRows {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(response.Bad_request("unable to find user"))
+				return
+			}
 			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(response.Bad_request(err.Error()))
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
@@ -76,8 +87,7 @@ func ResetPassword(userStore store.UserStore, tokenStore store.TokenStore) http.
 		hashPassword, err := helper.HashPassword(request.Password)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(response.Bad_request(err.Error()))
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
@@ -93,7 +103,7 @@ func ResetPassword(userStore store.UserStore, tokenStore store.TokenStore) http.
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusCreated)
+		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(response.Success())
 	}
 }

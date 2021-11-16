@@ -42,14 +42,12 @@ func GetRefreshToken(userStore store.UserStore, tokenStore store.TokenStore) htt
 			return
 		}
 
-		newToken := &GetRTResponse{
-			Value:      res.RefreshToken,
-			Expired_at: time.Unix(res.RtExpires, 0),
-			Type:       "jwt",
-		}
-
 		response := map[string]GetRTResponse{
-			"refresh_token": *newToken,
+			"refresh_token": {
+				Value:      res.RefreshToken,
+				Expired_at: time.Unix(res.RtExpires, 0),
+				Type:       "jwt",
+			},
 		}
 
 		w.Header().Set("Content-Type", "application/json")

@@ -37,7 +37,6 @@ func (ls LogStore) SetLoginLog(ll LoginLog) error {
 		return errors.New("failed to set user log audit")
 	}
 
-	defer tx.Rollback()
 	defer func() {
 		if rollBackErr := tx.Rollback(); rollBackErr == nil {
 			log.Error().Err(err).Msg("rolling back changes")

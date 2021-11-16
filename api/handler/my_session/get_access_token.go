@@ -2,7 +2,6 @@ package mysession
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"time"
 	"userland/api/helper"
@@ -35,7 +34,6 @@ func GetAccessToken(userStore store.UserStore, tokenStore store.TokenStore) http
 			return
 		}
 
-		// generated new access token by adding the current jwt id (access token) and adding refresh token jwt id
 		res, err := jwt.GenerateAccessToken(userId, atJti, rtJti, tokenStore)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
@@ -46,7 +44,6 @@ func GetAccessToken(userStore store.UserStore, tokenStore store.TokenStore) http
 
 		err = userStore.UpdateUserSession(r.Context(), atJti)
 		if err != nil {
-			fmt.Println("here ;(")
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
 			return
