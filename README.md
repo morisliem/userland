@@ -31,7 +31,7 @@ This project used onion model architecture as the guidline to structure the code
 
 Below is how the database schema looks like
 
-![Userland Diagram.drawio](assets/img/Userland Diagram.drawio.png)
+![database schema](assets/img/Userland Diagram.drawio.png)
 
 This application is formed from three entities and the database used is postgreSql. Below is the brief explanation for each entity.
 
