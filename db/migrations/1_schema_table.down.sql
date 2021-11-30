@@ -1,0 +1,4 @@
+DROP TABLE IF EXISTS "Person";
+DROP TABLE IF EXISTS "Session";
+DROP TABLE IF EXISTS "User_password";
+DROP TABLE IF EXISTS "Login_audit";

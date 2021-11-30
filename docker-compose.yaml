@@ -4,15 +4,15 @@ services:
     image: postgres:14-alpine
     restart: on-failure
     volumes:
-        - ./data:/var/lib/postgresql/data
+      - ./data:/var/lib/postgresql/data
     environment:
-        - POSTGRES_USER=admin
-        - POSTGRES_PASSWORD=admin
-        - POSTGRES_DB=userland
-        - PGPORT=5432
-    networks: 
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - PGPORT=${PGPORT}
+    networks:
       default:
-        aliases: 
+        aliases:
           - db_userland
     expose:
       - 5432
@@ -25,6 +25,21 @@ services:
       default:
         aliases:
           - adminer
+  migrate:
+    image: migrate/migrate
+    restart: on-failure
+    volumes:
+      - ./db/migrations:/migrations
+    command:
+      [
+        "-path",
+        "/migrations",
+        "-database",
+        "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}/${POSTGRES_DB}?sslmode=disable",
+        "up",
+      ]
+    depends_on:
+      - postgres
   userland:
     image: golang:1.16
     working_dir: /todolist
@@ -33,6 +48,10 @@ services:
     command: /bin/bash -c "go run ."
     ports:
       - "8080:80/tcp"
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
     networks:
       default:
         aliases:
@@ -40,7 +59,7 @@ services:
   redis:
     image: redis:6.2.6-alpine
     restart: on-failure
-    expose: 
+    expose:
       - 6379
     ports:
       - "6379:6379/tcp"
@@ -54,7 +73,7 @@ services:
   kafka:
     image: wurstmeister/kafka:2.13-2.7.0
     hostname: kafka
-    ports: 
+    ports:
       - "9092:9092/tcp"
     restart: on-failure
     links:
@@ -65,8 +84,5 @@ services:
       KAFKA_ADVERTISED_PORT: 9092
     expose:
       - 9092
-networks: 
+networks:
   default:
-
-
-

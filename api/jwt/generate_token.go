@@ -35,6 +35,9 @@ func GenerateAccessToken(userId string, ts store.TokenStore) (store.TokenDetails
 		return td, errAccess
 	}
 
+	// access_token:access token id
+	// user Id
+
 	return td, nil
 }
 

@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"os"
+	"strconv"
 	"time"
 	"userland/api"
 	"userland/api/kafka_job"
@@ -18,19 +20,24 @@ func main() {
 	// TODO use external config management (toml?)
 	_ = godotenv.Load(".env")
 
+	server_readTimeout, _ := strconv.Atoi(os.Getenv("READ_TIMEOUT"))
+	server_writeTimeout, _ := strconv.Atoi(os.Getenv("WRITE_TIMEOUT"))
+	server_shutdownTimeout, _ := strconv.Atoi(os.Getenv("SHUTDOWN_TIMEOUT"))
 	serverCfg := api.ServerConfig{
-		Host:            "0.0.0.0",
-		Port:            "80",
-		ReadTimeout:     500 * time.Millisecond,
-		WriteTimeout:    500 * time.Millisecond,
-		ShutdownTimeout: 10 * time.Second,
+		Host:            os.Getenv("SERVER_HOST"),
+		Port:            os.Getenv("SERVER_PORT"),
+		ReadTimeout:     time.Duration(server_readTimeout) * time.Millisecond,
+		WriteTimeout:    time.Duration(server_writeTimeout) * time.Millisecond,
+		ShutdownTimeout: time.Duration(server_shutdownTimeout) * time.Second,
 	}
+
+	db_port, _ := strconv.Atoi(os.Getenv("PGPORT"))
 	postgresCfg := store.PostgresConfig{
-		Host:     "db_userland",
-		Port:     5432,
-		Username: "admin",
-		Password: "admin",
-		Database: "userland",
+		Host:     os.Getenv("POSTGRES_HOST"),
+		Port:     db_port,
+		Username: os.Getenv("POSTGRES_USER"),
+		Password: os.Getenv("POSTGRES_PASSWORD"),
+		Database: os.Getenv("POSTGRES_DB"),
 	}
 	postgresDB, err := store.NewPG(postgresCfg)
 	if err != nil {
@@ -39,11 +46,13 @@ func main() {
 
 	logStore := postgres.NewLoginStore(postgresDB)
 
+	redis_port, _ := strconv.Atoi(os.Getenv("REDIS_PORT"))
+	redis_db, _ := strconv.Atoi(os.Getenv("REDIS_DB"))
 	redisCfg := store.RedisConfig{
-		Host:     "redis",
-		Port:     6379,
-		Password: "",
-		DB:       0,
+		Host:     os.Getenv("REDIS_HOST"),
+		Port:     redis_port,
+		Password: os.Getenv("REDIS_PASSWORD"),
+		DB:       redis_db,
 	}
 
 	redisDb, err := store.NewRedis(redisCfg)
@@ -57,13 +66,13 @@ func main() {
 	}
 
 	prodCfg := &kafka.ConfigMap{
-		"bootstrap.servers": "kafka:9092",
+		"bootstrap.servers": os.Getenv("BOOTSTRAP_SERVER"),
 	}
 
 	consCfg := &kafka.ConfigMap{
-		"bootstrap.servers": "kafka:9092",
-		"group.id":          "userland",
-		"auto.offset.reset": "latest",
+		"bootstrap.servers": os.Getenv("BOOTSTRAP_SERVER"),
+		"group.id":          os.Getenv("GROUP_ID"),
+		"auto.offset.reset": os.Getenv("AUTO_OFFSET"),
 	}
 
 	msgBroker, err := broker.NewBroker(consCfg, prodCfg)

@@ -1,0 +1,10 @@
+CREATE TABLE IF NOT EXISTS "Session"{
+	"id" UUID NOT NULL,
+	"user_id" UUID NOT NULL,
+	"ip_addres" VARCHAR (16) NOT NULL,
+	"created_at" TIMESTAMP NOT NULL,
+	"updated_at" TIMESTAMP,
+	"device" VARCHAR (20) NOT NULL,
+	PRIMARY KEY ("id"),
+	CONSTRAINT "fk_user_id" FOREIGN KEY ("user_id") REFERENCES "Person" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+} WITHOUT OIDS;
