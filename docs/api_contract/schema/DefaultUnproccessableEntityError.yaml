@@ -1,0 +1,20 @@
+title: DefaultUnproccessableEntityError
+type: object
+description: Default unproccesable entity error model
+properties:
+  fields:
+    type: object
+    required:
+      - field1
+      - field2
+    properties:
+      fieldname1:
+        type: string
+        description: error message for that field
+        example: password missing lowercase
+      fieldname2:
+        type: string
+        description: error message for that field
+        example: email is required
+required:
+  - fields

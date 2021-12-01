@@ -1,0 +1,49 @@
+title: MeListsResponse
+type: object
+description: Get list of my session response model
+properties:
+  data:
+    type: array
+    items:
+      type: object
+      properties:
+        is_current:
+          type: boolean
+          description: check if this session is user current session
+          example: true
+        ip_address:
+          type: string
+          description: user ip address when created the session
+          example: 192.0.0.1
+        client:
+          type: object
+          description: list of all the user sessions
+          required:
+            - id
+            - name
+          properties:
+            id:
+              type: string
+              example: 1cea2547-3a55-4de1-b95e-8bdf7591b6f8
+              description: session id
+            name:
+              type: string
+              description: name of device user used when session created
+              example: iphone x
+        created_at:
+          type: string
+          description: time when the session is created
+          example: '2009-11-10T23:00:00Z'
+        updated_at:
+          type: string
+          description: time when the session is updated
+          example: '2009-11-10T23:00:00Z'
+      required:
+        - is_current
+        - ip_address
+        - client
+        - created_at
+        - updated_at
+required:
+  - data
+examples: []

@@ -1,0 +1,31 @@
+title: RegisterRequest
+type: object
+description: Register request model
+properties:
+  fullname:
+    type: string
+    description: user fullname
+    example: hello world
+    maxLength: 128
+  email:
+    type: string
+    description: unique email
+    example: hello@gmail.com
+    maxLength: 128
+  password:
+    type: string
+    description: 'must contain at least a lowercase, an uppercase as well as number'
+    example: abcD1234
+    minLength: 8
+    maxLength: 128
+  confirm_password:
+    type: string
+    description: must be the same as the password field
+    example: abcD1234
+    minLength: 8
+    maxLength: 128
+required:
+  - fullname
+  - email
+  - password
+  - confirm_password

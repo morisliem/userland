@@ -17,7 +17,6 @@ import (
 )
 
 func main() {
-	// TODO use external config management (toml?)
 	_ = godotenv.Load(".env")
 
 	server_readTimeout, _ := strconv.Atoi(os.Getenv("READ_TIMEOUT"))

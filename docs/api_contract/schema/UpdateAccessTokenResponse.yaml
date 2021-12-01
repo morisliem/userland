@@ -1,0 +1,25 @@
+title: UpdateAccessTokenResponse
+type: object
+description: Update user access token response model
+properties:
+  access_token:
+    type: object
+    required:
+      - value
+      - type
+      - expired_at
+    properties:
+      value:
+        type: string
+        description: JWT
+        example: JWT Token
+      type:
+        type: string
+        description: token type
+        example: JWT
+      expired_at:
+        type: string
+        description: token expired time
+        example: '2021-10-10T00:00:00Z'
+required:
+  - access_token

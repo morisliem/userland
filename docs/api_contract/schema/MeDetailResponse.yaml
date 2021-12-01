@@ -1,0 +1,40 @@
+title: MeDetailResponse
+type: object
+description: Get current user information response model
+properties:
+  id:
+    type: string
+    description: user id
+    example: 8cea2547-3a55-4de1-b95e-8bdf7591b6f8
+  fullname:
+    type: string
+    description: user fullname
+    example: hello world
+  location:
+    type: string
+    description: user location
+    example: Jakarta, Indonesia
+  bio:
+    type: string
+    description: user bio
+    example: my short bio
+  web:
+    type: string
+    description: user web
+    example: https://example.com
+  picture:
+    type: string
+    description: user picture
+    example: user_uuid.png
+  created_at:
+    type: string
+    description: timestamp when the user created
+    example: "2009-11-10T23:00:00Z"
+required:
+  - id
+  - fullname
+  - location
+  - bio
+  - web
+  - picture
+  - created_at

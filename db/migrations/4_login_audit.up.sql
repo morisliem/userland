@@ -1,6 +1,0 @@
-CREATE TABLE IF NOT EXISTS "Login_audit"{
-	"username" UUID NOT NULL,
-	"ip_address" VARCHAR (16) NOT NULL,
-	"created_at" TIMESTAMP NOT NULL,
-	CONSTRAINT "fk_username" FOREIGN KEY ("username") REFERENCES "Person" ("id") ON DELETE CASCADE ON UPDATE CASCADE
-} WITHOUD OIDS;

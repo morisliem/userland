@@ -1,0 +1,724 @@
+openapi: 3.0.0
+info:
+  title: userland Api
+  description: userland Api Doc
+  version: '1.0'
+  contact:
+    name: Raja Moris
+    email: raja.moris@icehousecorp.co
+servers:
+  - url: 'http://localhost:8080'
+tags:
+  - name: Auth
+    description: Related to auth
+  - name: Me
+    description: Related to me
+  - name: Session
+    description: Related to session
+paths:
+  /auth/register:
+    post:
+      summary: Register
+      description: Register user
+      tags:
+        - Auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: ./schema/RegisterRequest.yaml
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultSuccess.yaml
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultError.yaml
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultUnproccessableEntityError.yaml
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultInternalServerError.yaml
+  /auth/register/validate:
+    post:
+      summary: Validate user email
+      description: Validate user email
+      tags:
+        - Auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: ./schema/VerifyEmailRequest.yaml
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultSuccess.yaml
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultError.yaml
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultUnproccessableEntityError.yaml
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultInternalServerError.yaml
+  /auth/resend/verification:
+    post:
+      summary: Resend unique code to user email
+      description: Resend unique code to user email
+      tags:
+        - Auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: ./schema/ResendCodeRequest.yaml
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultSuccess.yaml
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultError.yaml
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultUnproccessableEntityError.yaml
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultInternalServerError.yaml
+  /auth/login:
+    post:
+      summary: Login
+      description: Login user
+      tags:
+        - Auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: ./schema/LoginRequest.yaml
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/UpdateAccessTokenResponse.yaml
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultError.yaml
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultUnproccessableEntityError.yaml
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultInternalServerError.yaml
+      parameters:
+        - schema:
+            type: string
+            example: Iphone x
+          in: header
+          name: X-API-ClientID
+          description: Device name
+          required: true
+    parameters: []
+  /auth/password/forget:
+    post:
+      summary: Forget password
+      description: Forget user password
+      tags:
+        - Auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: ./schema/ForgetPasswordRequest.yaml
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultSuccess.yaml
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultError.yaml
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultInternalServerError.yaml
+  /auth/password/reset:
+    post:
+      summary: Reset password
+      description: Reset user password
+      tags:
+        - Auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: ./schema/ResetPasswordRequest.yaml
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultSuccess.yaml
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultError.yaml
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultUnproccessableEntityError.yaml
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultInternalServerError.yaml
+  /me:
+    get:
+      summary: Get user detail information
+      description: Get user detail information
+      tags:
+        - Me
+      security:
+        - AccountToken: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/MeDetailResponse.yaml
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultError.yaml
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultUnauthorizedError.yaml
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultInternalServerError.yaml
+    post:
+      summary: Update user detail information
+      description: Update user detail information
+      tags:
+        - Me
+      security:
+        - AccountToken: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: ./schema/UpdateMeDetailRequest.yaml
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultSuccess.yaml
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultError.yaml
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultUnauthorizedError.yaml
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultUnproccessableEntityError.yaml
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultInternalServerError.yaml
+  /me/email:
+    get:
+      summary: Get user email
+      description: Get user email
+      tags:
+        - Me
+      security:
+        - AccountToken: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/UserEmailResponse.yaml
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultError.yaml
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultUnauthorizedError.yaml
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultInternalServerError.yaml
+    post:
+      summary: Update user email
+      description: Update user email and all the session linked to the email will be revoked. User will need to activate the email and re-login to the system.
+      tags:
+        - Me
+      security:
+        - AccountToken: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: ./schema/UpdateUserEmailRequest.yaml
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultSuccess.yaml
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultError.yaml
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultUnauthorizedError.yaml
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultUnproccessableEntityError.yaml
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultInternalServerError.yaml
+  /me/password:
+    post:
+      summary: Update user password
+      description: Update user password
+      tags:
+        - Me
+      security:
+        - AccountToken: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: ./schema/UpdateUserPasswordRequest.yaml
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultSuccess.yaml
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultError.yaml
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultUnauthorizedError.yaml
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultUnproccessableEntityError.yaml
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultInternalServerError.yaml
+  /me/picture:
+    post:
+      summary: Update user picture
+      description: Update user picture
+      tags:
+        - Me
+      security:
+        - AccountToken: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: ./schema/UpdateUserPictureRequest.yaml
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultSuccess.yaml
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultError.yaml
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultUnauthorizedError.yaml
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultUnproccessableEntityError.yaml
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultInternalServerError.yaml
+    delete:
+      summary: Delete user picture
+      description: Delete user picture
+      tags:
+        - Me
+      security:
+        - AccountToken: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultSuccess.yaml
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultError.yaml
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultUnauthorizedError.yaml
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultInternalServerError.yaml
+  /me/delete:
+    post:
+      summary: Delete user
+      description: Delete user
+      tags:
+        - Me
+      security:
+        - AccountToken: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: ./schema/DeleteAccountRequest.yaml
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultSuccess.yaml
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultError.yaml
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultUnauthorizedError.yaml
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultUnproccessableEntityError.yaml
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultInternalServerError.yaml
+  /me/session:
+    get:
+      summary: Get list of user session
+      description: Get list of user session
+      tags:
+        - Session
+      security:
+        - AccountToken: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/MeListsResponse.yaml
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultError.yaml
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultUnauthorizedError.yaml
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultInternalServerError.yaml
+    delete:
+      summary: Delete user current session
+      description: Delete user current session
+      tags:
+        - Session
+      security:
+        - AccountToken: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultSuccess.yaml
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultError.yaml
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultUnauthorizedError.yaml
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultInternalServerError.yaml
+  /me/session/other:
+    delete:
+      summary: Delete user other session
+      description: Delete user other session
+      tags:
+        - Me
+      security:
+        - AccountToken: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultSuccess.yaml
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultError.yaml
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultUnauthorizedError.yaml
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultInternalServerError.yaml
+  /me/session/refresh_token:
+    get:
+      summary: Get refresh token
+      description: Get refresh token
+      tags:
+        - Session
+      security:
+        - AccountToken: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/UpdateRefreshTokenResponse.yaml
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultError.yaml
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultUnauthorizedError.yaml
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultInternalServerError.yaml
+  /me/session/access_token:
+    get:
+      summary: Get access token
+      description: Get access token from the refresh token
+      tags:
+        - Session
+      security:
+        - AccountToken: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/UpdateAccessTokenResponse.yaml
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultError.yaml
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultUnauthorizedError.yaml
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: ./schema/DefaultInternalServerError.yaml
+components:
+  securitySchemes:
+    AccountToken:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Account token

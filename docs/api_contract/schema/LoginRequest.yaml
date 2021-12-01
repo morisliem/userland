@@ -1,0 +1,15 @@
+title: LoginRequest
+type: object
+description: Login request model
+properties:
+  email:
+    type: string
+    description: unique email
+    example: hello@gmail.com
+  password:
+    type: string
+    description: 'must contain at least a lowercase, an uppercase as well as number'''
+    example: abc123D4
+required:
+  - email
+  - password

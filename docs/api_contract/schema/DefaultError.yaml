@@ -1,0 +1,10 @@
+title: DefaultError
+type: object
+description: Default error model
+properties:
+  message:
+    type: string
+    description: error message
+    example: incorrect password
+required:
+  - message

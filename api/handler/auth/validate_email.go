@@ -17,10 +17,6 @@ type ValidateEmailCodeRequest struct {
 	Code  int    `json:"code"`
 }
 
-/*
-	Updating the email once the email is verified
-*/
-
 func ValidateEmail(userStore store.UserStore, tokenStore store.TokenStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request ValidateEmailCodeRequest

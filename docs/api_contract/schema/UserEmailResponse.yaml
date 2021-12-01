@@ -1,0 +1,10 @@
+title: UserEmailResponse
+type: object
+description: Get user email response model
+properties:
+  email:
+    type: string
+    description: user unique email
+    example: hello@gmail.com
+required:
+  - email

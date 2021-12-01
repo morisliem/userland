@@ -1,0 +1,8 @@
+title: DefaultSuccess
+type: object
+description: Default success response model
+properties:
+  success:
+    type: boolean
+    example: true
+    description: Success message from server

@@ -1,0 +1,10 @@
+title: UpdateUserPictureRequest
+type: object
+description: Update user picture request model
+properties:
+  picture:
+    type: string
+    description: user picture
+    example: user_uuid.png
+required:
+  - picture

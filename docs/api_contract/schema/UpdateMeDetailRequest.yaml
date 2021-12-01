@@ -1,0 +1,24 @@
+title: UpdateMeDetailRequest
+type: object
+description: Update user detail request model
+properties:
+  fullname:
+    type: string
+    description: user fullname
+    example: hello world
+    maxLength: 128
+  location:
+    type: string
+    description: user location
+    example: 'Jakarta, Indonesia'
+    maxLength: 256
+  bio:
+    type: string
+    description: user short bio
+    example: my short bio
+    maxLength: 256
+  web:
+    type: string
+    description: user website
+    example: 'https://example.com'
+    maxLength: 128

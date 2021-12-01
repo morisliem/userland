@@ -1,0 +1,10 @@
+title: ResendCodeRequest
+type: object
+description: Resend code request model
+properties:
+  email:
+    type: string
+    description: unique email
+    example: hello@gmail.com
+required:
+  - email

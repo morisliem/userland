@@ -27,14 +27,12 @@ func LoginLog(ctx context.Context, kafka broker.BrokerInterface, ls postgres.Log
 
 			if err != nil {
 				continue
-				// log.Error().Err(err).Msg("error when getting the data from publisher")
 			}
 
 			job := broker.LoginLog{}
 			err = json.Unmarshal(msg.Value, &job)
 			if err != nil {
 				continue
-				// log.Error().Err(err).Msg("error when parsing the data from publisher")
 			}
 
 			logData := postgres.LoginLog{

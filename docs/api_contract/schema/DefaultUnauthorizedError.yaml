@@ -1,0 +1,10 @@
+title: DefaultError
+type: object
+description: Default unauthorized error model
+properties:
+  message:
+    type: string
+    description: error message
+    example: token is expired
+required:
+  - message

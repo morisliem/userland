@@ -1,0 +1,16 @@
+title: VerifyEmailRequest
+type: object
+description: Verify email request model
+properties:
+  code:
+    type: number
+    description: unique code from email
+    example: 123456
+  email:
+    type: string
+    description:
+    example: hello@gmail.com
+required:
+  - code
+  - email
+  

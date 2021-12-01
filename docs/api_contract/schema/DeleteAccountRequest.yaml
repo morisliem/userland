@@ -1,0 +1,10 @@
+title: DeleteAccountRequest
+type: object
+description: Delete account request model
+properties:
+  password:
+    type: string
+    description: user current password
+    example: abc123D4
+required:
+  - password

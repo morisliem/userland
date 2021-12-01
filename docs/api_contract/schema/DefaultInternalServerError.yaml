@@ -1,0 +1,10 @@
+title: DefaultInternalServerError
+type: object
+description: Default internal server error
+properties:
+  message:
+    type: string
+    description: error message
+    example: server error
+required:
+  - message
