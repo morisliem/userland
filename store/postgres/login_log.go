@@ -44,7 +44,7 @@ func (ls LogStore) SetLoginLog(ll LoginLog) error {
 	}()
 
 	var setLogAudit *sql.Stmt
-	setLogAudit, err = tx.Prepare(`INSERT into login_audit (username, ip_address, created_at) VALUES ($1,$2,$3)`)
+	setLogAudit, err = tx.Prepare(`INSERT into "Login_audit" (username, ip_address, created_at) VALUES ($1,$2,$3)`)
 	if err != nil {
 		log.Error().Err(err).Msg("error preparing statement")
 		return errors.New("failed to set user log audit")

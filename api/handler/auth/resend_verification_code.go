@@ -13,7 +13,7 @@ import (
 
 type ResendVerCodeReq struct {
 	Type  string `json:"type"`
-	Email string `json:"recipient"`
+	Email string `json:"email"`
 }
 
 func ResendVerCode(userStore store.UserStore, tokenStore store.TokenStore) http.HandlerFunc {

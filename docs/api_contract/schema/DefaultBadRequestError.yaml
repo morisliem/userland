@@ -1,0 +1,15 @@
+title: DefaultBadRequestError
+type: object
+description: Default bad request error model
+properties:
+  code:
+    type: number
+    description: special code to flag error
+    example: 400
+  message:
+    type: string
+    description: error message
+    example: incorrect password
+required:
+  - message
+  - code

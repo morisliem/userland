@@ -3,12 +3,13 @@ package helper
 import (
 	"fmt"
 	"net/smtp"
+	"os"
 )
 
 func SendEmailVerCode(emailAddress string, code int) error {
-	auth := smtp.PlainAuth("", "645a7ba148d62f", "ffdc4349b5cf9c", "smtp.mailtrap.io")
+	auth := smtp.PlainAuth("", os.Getenv("MAILER_USERNAME"), os.Getenv("MAILER_PASSWORD"), os.Getenv("MAILER_HOST"))
 
-	from := "e-montir"
+	from := "userland"
 	to := []string{emailAddress}
 	msg := []byte(fmt.Sprintf("From: %s\r\n", from) +
 		fmt.Sprintf("To: %s\r\n", emailAddress) +
@@ -16,7 +17,7 @@ func SendEmailVerCode(emailAddress string, code int) error {
 		"\r\n" +
 		fmt.Sprintf("Here's you code %d it's valid for 60 seconds\r\n", code))
 
-	err := smtp.SendMail("smtp.mailtrap.io:2525", auth, from, to, msg)
+	err := smtp.SendMail(fmt.Sprintf("%s:%s", os.Getenv("MAILER_HOST"), os.Getenv("MAILER_PORT")), auth, from, to, msg)
 	if err != nil {
 		return err
 	}
@@ -24,8 +25,9 @@ func SendEmailVerCode(emailAddress string, code int) error {
 }
 
 func SendEmailResetPwdCode(emailAddress string, code int) error {
-	auth := smtp.PlainAuth("", "645a7ba148d62f", "ffdc4349b5cf9c", "smtp.mailtrap.io")
+	auth := smtp.PlainAuth("", os.Getenv("MAILER_USERNAME"), os.Getenv("MAILER_PASSWORD"), os.Getenv("MAILER_HOST"))
 
+	from := "userland"
 	to := []string{emailAddress}
 	msg := []byte(
 		"From : moris@gmail.com\r\n" +
@@ -34,7 +36,7 @@ func SendEmailResetPwdCode(emailAddress string, code int) error {
 			"\r\n" +
 			fmt.Sprintf("Here's you code %d it's valid for 60 seconds\r\n", code))
 
-	err := smtp.SendMail("smtp.mailtrap.io:2525", auth, "moris@gmail.com", to, msg)
+	err := smtp.SendMail(fmt.Sprintf("%s:%s", os.Getenv("MAILER_HOST"), os.Getenv("MAILER_PORT")), auth, from, to, msg)
 	if err != nil {
 		return err
 	}

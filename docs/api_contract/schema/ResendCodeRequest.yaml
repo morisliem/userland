@@ -6,5 +6,10 @@ properties:
     type: string
     description: unique email
     example: hello@gmail.com
+  type:
+    type: string
+    description: code type
+    example: verification code
 required:
   - email
+  - type

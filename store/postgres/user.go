@@ -34,7 +34,7 @@ func (us *UserStore) UpdatePassword(ctx context.Context, uid string, u store.Use
 	}()
 
 	var updatePassword *sql.Stmt
-	updatePassword, err = tx.Prepare("UPDATE person SET Password = $1 WHERE id = $2")
+	updatePassword, err = tx.Prepare(`UPDATE "Person" SET Password = $1 WHERE id = $2`)
 	if err != nil {
 		log.Error().Err(err).Msg("error preparing update password statement")
 		return errors.New("failed to update password")
@@ -51,7 +51,7 @@ func (us *UserStore) UpdatePassword(ctx context.Context, uid string, u store.Use
 	}
 
 	var insertNewPassword *sql.Stmt
-	insertNewPassword, err = tx.Prepare(`INSERT INTO user_password (id, password, created_at) values ($1, $2, $3)`)
+	insertNewPassword, err = tx.Prepare(`INSERT INTO "User_password" (id, password, created_at) values ($1, $2, $3)`)
 	if err != nil {
 		log.Error().Err(err).Msg("error preparing insert new password statement")
 		return errors.New("failed to update password")
@@ -76,7 +76,7 @@ func (us *UserStore) UpdatePassword(ctx context.Context, uid string, u store.Use
 }
 
 func (us *UserStore) GetUserId(ctx context.Context, email string) (string, error) {
-	psqlStatement := `SELECT id FROM PERSON WHERE EMAIL = $1`
+	psqlStatement := `SELECT id FROM "Person" WHERE EMAIL = $1`
 
 	res := us.db.QueryRowContext(ctx, psqlStatement, email)
 	var id string
@@ -94,23 +94,8 @@ func (us *UserStore) GetUserId(ctx context.Context, email string) (string, error
 	return id, nil
 }
 
-func (us *UserStore) GetUserCode(ctx context.Context, u store.User) (int, error) {
-	psqlStatement := `SELECT ver_code FROM email_ver WHERE EMAIL = $1`
-
-	res := us.db.QueryRowContext(ctx, psqlStatement, u.Email)
-	var code int
-
-	err := res.Scan(&code)
-
-	if err != nil {
-		log.Error().Err(err).Msg("unable to get user code")
-		return 0, errors.New("unable to find the user")
-	}
-	return code, nil
-}
-
 func (us *UserStore) EmailActive(ctx context.Context, u store.User) (bool, error) {
-	psqlStatement := `SELECT is_active FROM Person WHERE Email = $1`
+	psqlStatement := `SELECT is_active FROM "Person" WHERE Email = $1`
 
 	res := us.db.QueryRowContext(ctx, psqlStatement, u.Email)
 	var is_active bool
@@ -130,7 +115,7 @@ func (us *UserStore) EmailActive(ctx context.Context, u store.User) (bool, error
 }
 
 func (us *UserStore) GetPasswordFromEmail(ctx context.Context, email string) (string, error) {
-	getPasswordStatement := `SELECT password from PERSON where email = $1`
+	getPasswordStatement := `SELECT password from "Person" where email = $1`
 	res := us.db.QueryRowContext(ctx, getPasswordStatement, email)
 	var password string
 
@@ -148,7 +133,7 @@ func (us *UserStore) GetPasswordFromEmail(ctx context.Context, email string) (st
 }
 
 func (us *UserStore) GetPassword(ctx context.Context, uid string) (string, error) {
-	psqlStatement := `SELECT password from person where id = $1`
+	psqlStatement := `SELECT password from "Person" where id = $1`
 
 	res := us.db.QueryRowContext(ctx, psqlStatement, uid)
 	var pwd string
@@ -162,7 +147,7 @@ func (us *UserStore) GetPassword(ctx context.Context, uid string) (string, error
 }
 
 func (us *UserStore) GetPasswords(ctx context.Context, uid string) ([]string, error) {
-	psqlStatement := `SELECT password FROM user_password WHERE id = $1 order by created_at desc limit 3`
+	psqlStatement := `SELECT password FROM "User_password" WHERE id = $1 order by created_at desc limit 3`
 
 	res, err := us.db.QueryContext(ctx, psqlStatement, uid)
 	if err != nil {
@@ -188,7 +173,7 @@ func (us *UserStore) GetPasswords(ctx context.Context, uid string) ([]string, er
 }
 
 func (us *UserStore) EmailExist(ctx context.Context, email string) error {
-	psqlStatement := `SELECT email FROM PERSON WHERE EMAIL = $1`
+	psqlStatement := `SELECT email FROM "Person" WHERE EMAIL = $1`
 
 	res := us.db.QueryRowContext(ctx, psqlStatement, email)
 	var tmp string
@@ -221,7 +206,7 @@ func (us *UserStore) RegisterUser(ctx context.Context, u store.User) error {
 
 	// Prepare statement for inserting new user
 	var inserUserStmt *sql.Stmt
-	inserUserStmt, err = tx.Prepare(`INSERT INTO person 
+	inserUserStmt, err = tx.Prepare(`INSERT INTO "Person" 
 									(fullname, email, password, created_at, id, is_active) 
 									values ($1, $2, $3, $4, $5, $6);`)
 	if err != nil {
@@ -242,7 +227,7 @@ func (us *UserStore) RegisterUser(ctx context.Context, u store.User) error {
 
 	// Prepare statement for inserting new password
 	var insertNewPassword *sql.Stmt
-	insertNewPassword, err = tx.Prepare(`INSERT INTO user_password 
+	insertNewPassword, err = tx.Prepare(`INSERT INTO "User_password" 
 										(id, password, created_at) 
 										VALUES($1, $2, $3)`)
 	if err != nil {
@@ -281,7 +266,7 @@ func (us *UserStore) ValidateCode(ctx context.Context, u store.User) error {
 	}()
 
 	var updateUser *sql.Stmt
-	updateUser, err = tx.Prepare(`UPDATE PERSON SET is_active = $3, email = $2 WHERE id = $1`)
+	updateUser, err = tx.Prepare(`UPDATE "Person" SET is_active = $3, email = $2 WHERE id = $1`)
 	if err != nil {
 		log.Error().Err(err).Msg("error preparing statement")
 		return errors.New("failed to update user state")
@@ -312,7 +297,7 @@ func (us *UserStore) ValidateCode(ctx context.Context, u store.User) error {
 
 func (us *UserStore) GetUserDetail(ctx context.Context, uid string) (store.User, error) {
 	var response store.User
-	psqlstatement := `SELECT * FROM person WHERE id = $1`
+	psqlstatement := `SELECT * FROM "Person" WHERE id = $1`
 
 	res := us.db.QueryRowContext(ctx, psqlstatement, uid)
 	var id, fullname, email, password string
@@ -342,7 +327,7 @@ func (us *UserStore) GetUserDetail(ctx context.Context, uid string) (store.User,
 		response.Location = loc
 	} else {
 		var tmp string
-		err := us.db.QueryRowContext(ctx, `SELECT location from PERSON where id = $1`, id).Scan(&tmp)
+		err := us.db.QueryRowContext(ctx, `SELECT location from "Person" where id = $1`, id).Scan(&tmp)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				log.Error().Err(err).Msg("unable to get user detail")
@@ -358,7 +343,7 @@ func (us *UserStore) GetUserDetail(ctx context.Context, uid string) (store.User,
 		response.Bio = bioo
 	} else {
 		var tmp string
-		err := us.db.QueryRowContext(ctx, `SELECT bio from PERSON where id = $1`, id).Scan(&tmp)
+		err := us.db.QueryRowContext(ctx, `SELECT bio from "Person" where id = $1`, id).Scan(&tmp)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				log.Error().Err(err).Msg("unable to get user detail")
@@ -374,7 +359,7 @@ func (us *UserStore) GetUserDetail(ctx context.Context, uid string) (store.User,
 		response.Web = webs
 	} else {
 		var tmp string
-		err := us.db.QueryRowContext(ctx, `SELECT web from PERSON where id = $1`, id).Scan(&tmp)
+		err := us.db.QueryRowContext(ctx, `SELECT web from "Person" where id = $1`, id).Scan(&tmp)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				log.Error().Err(err).Msg("unable to get user detail")
@@ -390,7 +375,7 @@ func (us *UserStore) GetUserDetail(ctx context.Context, uid string) (store.User,
 		response.Picture = pict
 	} else {
 		var tmp string
-		err := us.db.QueryRowContext(ctx, `SELECT picture from PERSON where id = $1`, id).Scan(&tmp)
+		err := us.db.QueryRowContext(ctx, `SELECT picture from "Person" where id = $1`, id).Scan(&tmp)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				log.Error().Err(err).Msg("unable to get user detail")
@@ -421,7 +406,7 @@ func (us *UserStore) UpdateUserDetail(ctx context.Context, u store.User, uid str
 	}()
 
 	var updateUserDetail *sql.Stmt
-	updateUserDetail, err = tx.Prepare(`UPDATE person 
+	updateUserDetail, err = tx.Prepare(`UPDATE "Person" 
 										SET Fullname = $2, Location = $3, Bio = $4, Web = $5 
 										WHERE id = $1`)
 
@@ -452,7 +437,7 @@ func (us *UserStore) UpdateUserDetail(ctx context.Context, u store.User, uid str
 
 func (us *UserStore) GetUserEmail(ctx context.Context, uid string) (string, error) {
 	var email string
-	psqlstatement := `SELECT email FROM person WHERE id = $1`
+	psqlstatement := `SELECT email FROM "Person" WHERE id = $1`
 
 	err := us.db.QueryRowContext(ctx, psqlstatement, uid).Scan(&email)
 	if err != nil {
@@ -481,7 +466,7 @@ func (us *UserStore) DeleteAccount(ctx context.Context, uid string) error {
 	}()
 
 	var updateAccountState *sql.Stmt
-	updateAccountState, err = tx.Prepare(`UPDATE person SET is_active = $2 WHERE id = $1`)
+	updateAccountState, err = tx.Prepare(`UPDATE "Person" SET is_active = $2 WHERE id = $1`)
 	if err != nil {
 		log.Error().Err(err).Msg("error preparing statement")
 		return errors.New("failed to delete account")
@@ -506,7 +491,7 @@ func (us *UserStore) DeleteAccount(ctx context.Context, uid string) error {
 }
 
 func (us *UserStore) GetUserProfilePicture(ctx context.Context, uid string) (string, error) {
-	psqlStatement := `SELECT picture from PERSON WHERE id = $1`
+	psqlStatement := `SELECT picture from "Person" WHERE id = $1`
 
 	res := us.db.QueryRowContext(ctx, psqlStatement, uid)
 	var pictureName string
@@ -539,7 +524,7 @@ func (us *UserStore) DeleteUserPicture(ctx context.Context, uid string) error {
 	}()
 
 	var setPicture *sql.Stmt
-	setPicture, err = tx.Prepare(`UPDATE person Set Picture = $2 Where id = $1`)
+	setPicture, err = tx.Prepare(`UPDATE "Person" Set Picture = $2 Where id = $1`)
 	if err != nil {
 		log.Error().Err(err).Msg("error preparing statement")
 		return errors.New("failed to remove user picture")
@@ -579,7 +564,7 @@ func (us *UserStore) SetUserPicture(ctx context.Context, uid string, pict string
 	}()
 
 	var setPicture *sql.Stmt
-	setPicture, err = tx.Prepare(`UPDATE person Set Picture = $2 Where id = $1`)
+	setPicture, err = tx.Prepare(`UPDATE "Person" Set Picture = $2 Where id = $1`)
 	if err != nil {
 		log.Error().Err(err).Msg("error preparing statement")
 		return errors.New("failed to add user picture")
@@ -619,7 +604,7 @@ func (us *UserStore) SetUserSession(ctx context.Context, t store.TokenDetails, u
 	}()
 
 	var setSession *sql.Stmt
-	setSession, err = tx.Prepare(`INSERT into SESSION (id, userid, ip_address, created_at, device) VALUES ($1,$2,$3,$4,$5)`)
+	setSession, err = tx.Prepare(`INSERT into "Session" (id, user_id, ip_address, created_at, device) VALUES ($1,$2,$3,$4,$5)`)
 	if err != nil {
 		log.Error().Err(err).Msg("error preparing statement")
 		return errors.New("failed to set user session")
@@ -644,8 +629,8 @@ func (us *UserStore) SetUserSession(ctx context.Context, t store.TokenDetails, u
 }
 
 func (us *UserStore) GetUserSession(ctx context.Context, uid string, sessionId string) (store.UserSession, error) {
-	psqlToGetSessionInfo := `SELECT ip_address, created_at, updated_at FROM session WHERE id = $1`
-	psqlToGetClientInfo := `SELECT id, device FROM session WHERE userid = $1`
+	psqlToGetSessionInfo := `SELECT ip_address, created_at, updated_at FROM "Session" WHERE id = $1`
+	psqlToGetClientInfo := `SELECT id, device FROM "Session" WHERE user_id = $1`
 	var userSessionResponse store.UserSession
 	var userInfo store.UserInfo
 	var ip string
@@ -669,7 +654,7 @@ func (us *UserStore) GetUserSession(ctx context.Context, uid string, sessionId s
 		userSessionResponse.Updated_at = tmpUat
 	} else {
 		var tmp time.Time
-		err := us.db.QueryRowContext(ctx, `SELECT updated_at from SESSION where id = $1`, sessionId).Scan(&tmp)
+		err := us.db.QueryRowContext(ctx, `SELECT updated_at from "Session" where id = $1`, sessionId).Scan(&tmp)
 		if err != nil {
 			log.Error().Err(err).Msg(err.Error())
 			return userSessionResponse, errors.New("unable to find the user session")
@@ -718,7 +703,7 @@ func (us *UserStore) UpdateUserSession(ctx context.Context, prevSessionId string
 	}()
 
 	var updateSession *sql.Stmt
-	updateSession, err = tx.Prepare(`UPDATE session Set Updated_at = $2, id = $3 Where id = $1`)
+	updateSession, err = tx.Prepare(`UPDATE "Session" Set Updated_at = $2, id = $3 Where id = $1`)
 	if err != nil {
 		log.Error().Err(err).Msg("error preparing statement")
 		return errors.New("failed to update session")
@@ -758,7 +743,7 @@ func (us *UserStore) DeleteCurrentSession(ctx context.Context, sessionId string)
 	}()
 
 	var deleteCurrentSession *sql.Stmt
-	deleteCurrentSession, err = tx.Prepare(`DELETE from Session Where id = $1`)
+	deleteCurrentSession, err = tx.Prepare(`DELETE from "Session" Where id = $1`)
 	if err != nil {
 		log.Error().Err(err).Msg("error preparing statement")
 		return errors.New("failed to delete current session")
@@ -798,7 +783,7 @@ func (us *UserStore) DeleteOtherSession(ctx context.Context, uid string, sid str
 	}()
 
 	var deleteOtherSession *sql.Stmt
-	deleteOtherSession, err = tx.Prepare(`DELETE from Session Where userid = $1 AND id <> $2`)
+	deleteOtherSession, err = tx.Prepare(`DELETE from "Session" Where user_id = $1 AND id <> $2`)
 	if err != nil {
 		log.Error().Err(err).Msg("error preparing statement")
 		return errors.New("failed to delete other session")
@@ -822,9 +807,48 @@ func (us *UserStore) DeleteOtherSession(ctx context.Context, uid string, sid str
 	return nil
 }
 
+func (us *UserStore) DeleteAllSession(ctx context.Context, uid string) error {
+	var tx *sql.Tx
+	tx, err := us.db.Begin()
+
+	if err != nil {
+		log.Error().Err(err).Msg("failed to begin transaction")
+		return errors.New("failed to delete all session")
+	}
+
+	defer func() {
+		if rollBackErr := tx.Rollback(); rollBackErr == nil {
+			log.Error().Err(err).Msg("rolling back changes")
+		}
+	}()
+
+	var deleteCurrentSession *sql.Stmt
+	deleteCurrentSession, err = tx.Prepare(`DELETE from "Session" Where user_id = $1`)
+	if err != nil {
+		log.Error().Err(err).Msg("error preparing statement")
+		return errors.New("failed to delete all session")
+	}
+	defer deleteCurrentSession.Close()
+
+	result, err := deleteCurrentSession.Exec(uid)
+	rowsAff, _ := result.RowsAffected()
+
+	if err != nil || rowsAff < 1 {
+		log.Error().Err(err).Msg("error deleting all user session")
+		return errors.New("failed to delete all session")
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		log.Error().Err(err).Msg("error committing changes")
+		return errors.New("failed to delete all session")
+	}
+	return nil
+}
+
 func (us *UserStore) GetSessionsId(ctx context.Context, uid string) ([]string, error) {
 	var listOfSessionId []string
-	psqlStatement := `SELECT id FROM SESSION WHERE userid = $1`
+	psqlStatement := `SELECT id FROM "Session" WHERE user_id = $1`
 
 	res, err := us.db.QueryContext(ctx, psqlStatement, uid)
 

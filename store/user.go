@@ -37,7 +37,6 @@ type UserStore interface {
 	RegisterUser(ctx context.Context, u User) error
 	UpdatePassword(ctx context.Context, uid string, u User) error
 	ValidateCode(ctx context.Context, u User) error
-	GetUserCode(ctx context.Context, u User) (int, error)
 	GetPassword(ctx context.Context, uid string) (string, error)
 	GetPasswords(ctx context.Context, uid string) ([]string, error)
 	GetPasswordFromEmail(ctx context.Context, email string) (string, error)
@@ -54,6 +53,7 @@ type UserStore interface {
 	UpdateUserSession(ctx context.Context, prevSessionId string, newSessionId string) error
 	DeleteCurrentSession(ctx context.Context, sessionId string) error
 	DeleteOtherSession(ctx context.Context, uid string, sessionId string) error
+	DeleteAllSession(ctx context.Context, uid string) error
 	GetSessionsId(ctx context.Context, uid string) ([]string, error)
 	GetUserProfilePicture(ctx context.Context, uid string) (string, error)
 }

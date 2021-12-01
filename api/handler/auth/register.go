@@ -62,7 +62,6 @@ func Register(userStore store.UserStore, tokenStore store.TokenStore) http.Handl
 			Password: hashPassword,
 		}
 		rn := helper.GenerateRandomNumber()
-		// rn := 123
 
 		err = userStore.EmailExist(ctx, newRegister.Email)
 		if err == nil {
@@ -98,7 +97,9 @@ func Register(userStore store.UserStore, tokenStore store.TokenStore) http.Handl
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusCreated)
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(response.Success())
+
 	}
 }
 

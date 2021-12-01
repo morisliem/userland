@@ -135,14 +135,7 @@ func DeleteUserAccount(userStore store.UserStore, tokenStore store.TokenStore) h
 			}
 		}
 
-		err = userStore.DeleteCurrentSession(r.Context(), atJti)
-		if err != nil {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-
-		err = userStore.DeleteOtherSession(r.Context(), userId, atJti)
+		err = userStore.DeleteAllSession(r.Context(), userId)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)

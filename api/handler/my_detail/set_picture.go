@@ -43,7 +43,7 @@ func SetUserPicture(userStore store.UserStore, tokenStore store.TokenStore) http
 
 		fileName := fmt.Sprintf("%v", userId) + ".png"
 
-		err = ioutil.WriteFile("./data/img/"+fileName, fileBytes, 0777)
+		err = ioutil.WriteFile("docs/img/user/"+fileName, fileBytes, 0777)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)

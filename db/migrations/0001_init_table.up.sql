@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS "Person" (
 CREATE TABLE IF NOT EXISTS "Session" (
 	"id" UUID NOT NULL,
 	"user_id" UUID NOT NULL,
-	"ip_addres" VARCHAR (16) NOT NULL,
+	"ip_address" VARCHAR (16) NOT NULL,
 	"created_at" TIMESTAMP NOT NULL,
 	"updated_at" TIMESTAMP,
 	"device" VARCHAR (20) NOT NULL,

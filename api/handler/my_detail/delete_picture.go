@@ -41,8 +41,7 @@ func DeleteUserProfilePicture(userStore store.UserStore, tokenStore store.TokenS
 			return
 		}
 
-		// removing the file from img directory
-		err = os.Remove("./data/img/" + picName)
+		err = os.Remove("docs/img/user/" + picName)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)

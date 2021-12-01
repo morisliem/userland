@@ -16,8 +16,6 @@ type PostgresConfig struct {
 	Database string
 }
 
-// open a db connection that is compatible with database/sql
-// using https://github.com/jackc/pgx/blob/master/stdlib/sql.go
 func NewPG(config PostgresConfig) (*sql.DB, error) {
 	connString := fmt.Sprintf(
 		"postgres://%s:%s@%s:%d/%s",
